@@ -4,6 +4,7 @@ interface Requirements {
     range: number;
     payload: number;
     speed: number;
+    airfoil: string;
 }
 
 export const RequirementForm: React.FC = () => {
@@ -11,17 +12,21 @@ export const RequirementForm: React.FC = () => {
         range: 1000,
         payload: 400,
         speed: 60,
+        airfoil: 'NACA2412',
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setReqs(prev => ({ ...prev, [name]: parseFloat(value) || 0 }));
+        setReqs(prev => ({
+            ...prev,
+            [name]: name === 'airfoil' ? value : (parseFloat(value) || 0)
+        }));
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         console.log("Submitted Requirements:", reqs);
-        alert(`Design Requirements Set:\nRange: ${reqs.range} km\nPayload: ${reqs.payload} kg\nSpeed: ${reqs.speed} m/s`);
+        alert(`Design Requirements Set:\nRange: ${reqs.range} km\nPayload: ${reqs.payload} kg\nSpeed: ${reqs.speed} m/s\nAirfoil: ${reqs.airfoil}`);
     };
 
     return (
@@ -63,6 +68,21 @@ export const RequirementForm: React.FC = () => {
                         <span>≈ {(reqs.speed * 3.6).toFixed(1)} km/h</span>
                         <span>≈ {(reqs.speed * 1.94384).toFixed(1)} kts</span>
                     </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Airfoil Selection</label>
+                    <select
+                        name="airfoil"
+                        value={reqs.airfoil}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="NACA2412">NACA 2412 (Cessna 172)</option>
+                        <option value="NACA0012">NACA 0012 (Symmetric)</option>
+                        <option value="CLARKY">Clark Y (General Purpose)</option>
+                        <option value="E387">Eppler 387 (Soaring)</option>
+                    </select>
                 </div>
 
                 <button
