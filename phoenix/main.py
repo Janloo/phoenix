@@ -33,6 +33,34 @@ def main():
     selected_airfoil_name = names[choice]
     airfoil = db.get_airfoil(selected_airfoil_name)
     print(f"Selected: {selected_airfoil_name}")
+    
+    # 2b. XFoil Analysis Option
+    print("\n--- Aerodynamic Analysis ---")
+    xfoil_choice = input("Run XFoil Analysis? (y/n) [n]: ").lower()
+    
+    if xfoil_choice == 'y':
+        from phoenix.analysis.xfoil_interface import XFoilWrapper
+        
+        # Estimate Reynolds?
+        # Re = (density * velocity * chord) / viscosity
+        # Viscosity ~ 1.78e-5 kg/(m s)
+        # Just ask user for now or use a default GA value
+        reynolds = input_float("Reynolds Number (e.g. 1000000 for GA)", 1000000.0)
+        
+        print(f"Running XFoil for {selected_airfoil_name}...")
+        coords = airfoil.data.coordinates
+        if not coords:
+            print("Error: No geometry coordinates available for this airfoil. Cannot run XFoil.")
+        else:
+            polar_data = XFoilWrapper.run_xfoil(selected_airfoil_name, coords, reynolds)
+            
+            if polar_data:
+                print(f"Success! Generated polar with {len(polar_data['alpha'])} points.")
+                # Update airfoil with new data
+                airfoil.update_polars(polar_data)
+                # print(polar_data) # Debug
+            else:
+                print("XFoil analysis failed. Using specific/default database polars.")
 
     # 3. Geometric Config
     print("\n--- Wing Geometry ---")

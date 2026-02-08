@@ -11,10 +11,22 @@ class AirfoilData:
     cl: List[float]
     cd: List[float]
     coordinates: Optional[List[Tuple[float, float]]] = None
+    
+    def update_polars(self, alpha: List[float], cl: List[float], cd: List[float]):
+        self.alpha = alpha
+        self.cl = cl
+        self.cd = cd
 
 class Airfoil:
     def __init__(self, data: AirfoilData):
         self.data = data
+
+    def update_polars(self, polar_data: Dict[str, List[float]]):
+        """
+        Updates the internal polar data from a dictionary (e.g. from XFoil).
+        """
+        if "alpha" in polar_data and "CL" in polar_data and "CD" in polar_data:
+            self.data.update_polars(polar_data["alpha"], polar_data["CL"], polar_data["CD"])
 
     def get_coefficients(self, alpha: float) -> Tuple[float, float]:
         """
