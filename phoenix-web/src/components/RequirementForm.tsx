@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 interface Requirements {
     range: number;
@@ -7,26 +7,25 @@ interface Requirements {
     airfoil: string;
 }
 
-export const RequirementForm: React.FC = () => {
-    const [reqs, setReqs] = useState<Requirements>({
-        range: 1000,
-        payload: 400,
-        speed: 60,
-        airfoil: 'NACA2412',
-    });
+interface Props {
+    data: Requirements;
+    onChange: (data: Requirements) => void;
+}
+
+export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setReqs(prev => ({
-            ...prev,
+        onChange({
+            ...data,
             [name]: name === 'airfoil' ? value : (parseFloat(value) || 0)
-        }));
+        });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Submitted Requirements:", reqs);
-        alert(`Design Requirements Set:\nRange: ${reqs.range} km\nPayload: ${reqs.payload} kg\nSpeed: ${reqs.speed} m/s\nAirfoil: ${reqs.airfoil}`);
+        console.log("Submitted Requirements:", data);
+        alert(`Design Requirements Set:\nRange: ${data.range} km\nPayload: ${data.payload} kg\nSpeed: ${data.speed} m/s\nAirfoil: ${data.airfoil}`);
     };
 
     return (
@@ -38,7 +37,7 @@ export const RequirementForm: React.FC = () => {
                     <input
                         type="number"
                         name="range"
-                        value={reqs.range}
+                        value={data.range}
                         onChange={handleChange}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -49,7 +48,7 @@ export const RequirementForm: React.FC = () => {
                     <input
                         type="number"
                         name="payload"
-                        value={reqs.payload}
+                        value={data.payload}
                         onChange={handleChange}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -60,13 +59,13 @@ export const RequirementForm: React.FC = () => {
                     <input
                         type="number"
                         name="speed"
-                        value={reqs.speed}
+                        value={data.speed}
                         onChange={handleChange}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                     <div className="mt-2 text-xs text-slate-400 flex space-x-4">
-                        <span>≈ {(reqs.speed * 3.6).toFixed(1)} km/h</span>
-                        <span>≈ {(reqs.speed * 1.94384).toFixed(1)} kts</span>
+                        <span>≈ {(data.speed * 3.6).toFixed(1)} km/h</span>
+                        <span>≈ {(data.speed * 1.94384).toFixed(1)} kts</span>
                     </div>
                 </div>
 
@@ -74,7 +73,7 @@ export const RequirementForm: React.FC = () => {
                     <label className="block text-sm font-medium text-slate-300 mb-1">Airfoil Selection</label>
                     <select
                         name="airfoil"
-                        value={reqs.airfoil}
+                        value={data.airfoil}
                         onChange={handleChange}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
@@ -95,3 +94,4 @@ export const RequirementForm: React.FC = () => {
         </div>
     );
 };
+export type { Requirements };

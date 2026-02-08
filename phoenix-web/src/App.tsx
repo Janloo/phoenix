@@ -1,10 +1,18 @@
 import { useState } from 'react'
 import { RequirementForm } from './components/RequirementForm'
+import type { Requirements } from './components/RequirementForm'
+import { DesignVisualizer } from './components/DesignVisualizer'
 import { Aerodynamics } from './components/Aerodynamics'
 import { Settings } from './components/Settings'
 
 function App() {
   const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'settings'>('sizing');
+  const [designReqs, setDesignReqs] = useState<Requirements>({
+    range: 1000,
+    payload: 400,
+    speed: 60,
+    airfoil: 'NACA2412'
+  });
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200">
@@ -44,26 +52,21 @@ function App() {
         {currentView === 'sizing' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
 
-            {/* Left Column: Context/Info */}
+            {/* Left Column: Context/Info -> NOW VISUALIZATION */}
             <div className="space-y-6">
               <div className="prose prose-invert">
                 <h2 className="text-3xl font-extrabold text-white">Geometric Sizing</h2>
                 <p className="text-slate-400 text-lg leading-relaxed">
-                  Define your mission requirements to generate an initial aircraft configuration.
-                  Phoenix uses statistical data and physics-based models to estimate weight,
-                  wing area, and power requirements.
+                  Real-time estimation of aircraft geometry based on mission requirements.
                 </p>
               </div>
 
-              {/* Placeholder for future results/visualization */}
-              <div className="p-6 bg-slate-800/50 rounded-lg border border-slate-700/50 border-dashed min-h-[200px] flex items-center justify-center">
-                <p className="text-slate-500 italic">Real-time design visualization will appear here.</p>
-              </div>
+              <DesignVisualizer reqs={designReqs} />
             </div>
 
             {/* Right Column: Input Form */}
             <div>
-              <RequirementForm />
+              <RequirementForm data={designReqs} onChange={setDesignReqs} />
             </div>
 
           </div>
