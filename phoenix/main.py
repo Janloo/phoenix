@@ -20,7 +20,7 @@ def main():
     print("=== Phoenix Aircraft Design Platform ===")
     
     # 1. Load Airfoils
-    db = AirfoilDatabase("phoenix/data/airfoils.json")
+    db = AirfoilDatabase("phoenix/data")
     print(f"Loaded {len(db.airfoils)} airfoils.")
     
     # 2. Select Airfoil

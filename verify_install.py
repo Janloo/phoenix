@@ -11,14 +11,27 @@ def verify():
     print("Running Verification with Cessna 172 parameters...")
     
     # 1. Load DB
-    db = AirfoilDatabase("phoenix/data/airfoils.json")
-    if "NACA 2412" not in db.airfoils:
-        print("ERROR: NACA 2412 not found in DB")
+    db = AirfoilDatabase("phoenix/data")
+    if "NACA2412" not in db.airfoils:
+        print("ERROR: NACA2412 not found in DB")
         return
         
-    airfoil = db.get_airfoil("NACA 2412")
+    airfoil = db.get_airfoil("NACA2412")
     
+    # Check other new airfoils
+    for name in ["CLARKY", "E387"]:
+        af = db.get_airfoil(name)
+        if af and af.data.coordinates:
+             print(f"Verified {name}: Loaded with {len(af.data.coordinates)} points")
+        else:
+             print(f"Warning: {name} incomplete")
+
     # 2. Geometry (C172 approx)
+    if airfoil.data.coordinates:
+        print(f"Airfoil Geometry Loaded (NACA2412): {len(airfoil.data.coordinates)} points")
+    else:
+        print("Warning: Airfoil Geometry NOT loaded")
+
     wing = WingGeo(span=11.0, chord_root=1.47, chord_tip=1.47) # 16.2 m2
     tail = TailGeo(span=3.5, chord=1.2, arm=4.5)
     
