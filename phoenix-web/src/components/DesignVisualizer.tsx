@@ -29,6 +29,34 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
     const span = Math.sqrt(wingArea * aspectRatio);
     const chord = wingArea / span;
 
+    // Power / Thrust Estimation
+    // Assume L/D ~ 12-14 for GA Cruise
+    const liftDragRatio = 14;
+    const dragN = (mtow * 9.81) / liftDragRatio;
+
+    let powerInfo = { value: 0, unit: '', label: '' };
+
+    if (reqs.engineType === 'jet') {
+        const thrustKN = dragN / 1000;
+        // Jet needs slightly more static thrust than cruise drag (approx 1.2-1.5x)
+        powerInfo = {
+            value: thrustKN * 1.5,
+            unit: 'kN',
+            label: 'Min Static Thrust'
+        };
+    } else {
+        // Piston Prop
+        // Power = Drag * V / prop_efficiency
+        const propEff = 0.8;
+        const powerWatts = (dragN * velocity) / propEff;
+        const powerHP = powerWatts / 745.7;
+        powerInfo = {
+            value: powerHP,
+            unit: 'hp',
+            label: 'Min Engine Power'
+        };
+    }
+
     // --- Visualization Scaling ---
     // Canvas 300x200
     const pxPerMeter = 15; // Zoom Level
@@ -38,7 +66,7 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
     return (
         <div className="space-y-6">
             {/* Real-time Metrics */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Est. MTOW</p>
                     <p className="text-xl font-bold text-white">{mtow.toFixed(0)} <span className="text-sm font-normal text-slate-500">kg</span></p>
@@ -50,6 +78,10 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Wingspan</p>
                     <p className="text-xl font-bold text-white">{span.toFixed(1)} <span className="text-sm font-normal text-slate-500">m</span></p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center ring-1 ring-blue-500/50">
+                    <p className="text-xs text-blue-400 uppercase tracking-widest">{powerInfo.label}</p>
+                    <p className="text-xl font-bold text-white">{powerInfo.value.toFixed(1)} <span className="text-sm font-normal text-slate-500">{powerInfo.unit}</span></p>
                 </div>
             </div>
 

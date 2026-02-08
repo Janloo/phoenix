@@ -23,146 +23,164 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
         const { name, value } = e.target;
         onChange({
             ...data,
-            [name]: name === 'airfoil' ? value : (parseFloat(value) || 0)
+            [name]: (name === 'airfoil' || name === 'engineType' || name === 'tailAirfoil') ? value : (parseFloat(value) || 0)
         });
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         console.log("Submitted Requirements:", data);
-        alert(`Requirements:\nRange: ${data.range} km\nAltitude: ${data.altitude} m\nPayload: ${data.payload} kg\nSpeed: ${data.speed} m/s`);
+        alert(`Design Configuration Saved!`);
     };
 
+    const SectionHeader = ({ title }: { title: string }) => (
+        <div className="pb-2 mb-4 border-b border-slate-700">
+            <h3 className="text-lg font-semibold text-blue-400">{title}</h3>
+        </div>
+    );
+
+    const InputField = ({ label, name, value, type = "number", unit, subtext }: any) => (
+        <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
+            <div className="relative">
+                <input
+                    type={type}
+                    name={name}
+                    value={value}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+                {unit && <span className="absolute right-3 top-2 text-slate-500 text-sm">{unit}</span>}
+            </div>
+            {subtext && <div className="mt-1 text-xs text-slate-500">{subtext}</div>}
+        </div>
+    );
+
+    const SelectField = ({ label, name, value, options }: any) => (
+        <div>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
+            <select
+                name={name}
+                value={value}
+                onChange={handleChange}
+                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
+            >
+                {options.map((opt: any) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+            </select>
+        </div>
+    );
+
     return (
-        <div className="p-8 max-w-md mx-auto bg-slate-800 rounded-xl shadow-lg border border-slate-700">
-            <h2 className="text-2xl font-bold mb-6 text-white text-center">Design Requirements</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Flight Range (km)</label>
-                    <input
-                        type="number"
-                        name="range"
-                        value={data.range}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
+        <div className="p-6 max-w-xl mx-auto bg-slate-800 rounded-xl shadow-2xl border border-slate-700">
+            <h2 className="text-2xl font-bold mb-6 text-white text-center tracking-tight">Configuration Parameters</h2>
 
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Cruise Altitude (m)</label>
-                    <input
-                        type="number"
-                        name="altitude"
-                        value={data.altitude}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <div className="mt-2 text-xs text-slate-400">
-                        <span>≈ {(data.altitude * 3.28084).toFixed(0)} ft</span>
+            <form onSubmit={handleSubmit} className="space-y-8">
+
+                {/* 1. Mission Profile */}
+                <section>
+                    <SectionHeader title="Mission Profile" />
+                    <div className="grid grid-cols-2 gap-6">
+                        <InputField
+                            label="Max Range"
+                            name="range"
+                            value={data.range}
+                            unit="km"
+                        />
+                        <InputField
+                            label="Cruise Altitude"
+                            name="altitude"
+                            value={data.altitude}
+                            unit="m"
+                            subtext={`≈ ${(data.altitude * 3.28084).toFixed(0)} ft`}
+                        />
+                        <InputField
+                            label="Payload Mass"
+                            name="payload"
+                            value={data.payload}
+                            unit="kg"
+                        />
+                        <InputField
+                            label="Cruise Speed"
+                            name="speed"
+                            value={data.speed}
+                            unit="m/s"
+                            subtext={`${(data.speed * 1.94384).toFixed(0)} kts`}
+                        />
                     </div>
-                </div>
+                </section>
 
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Payload (kg)</label>
-                    <input
-                        type="number"
-                        name="payload"
-                        value={data.payload}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Cruise Speed (m/s)</label>
-                    <input
-                        type="number"
-                        name="speed"
-                        value={data.speed}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <div className="mt-2 text-xs text-slate-400 flex space-x-4">
-                        <span>≈ {(data.speed * 3.6).toFixed(1)} km/h</span>
-                        <span>≈ {(data.speed * 1.94384).toFixed(1)} kts</span>
+                {/* 2. Propulsion */}
+                <section>
+                    <SectionHeader title="Propulsion System" />
+                    <div className="grid grid-cols-1 gap-6">
+                        <SelectField
+                            label="Engine Type"
+                            name="engineType"
+                            value={data.engineType}
+                            options={[
+                                { value: 'piston', label: 'Reciprocating Piston (Propeller)' },
+                                { value: 'jet', label: 'Turbojet Engine' }
+                            ]}
+                        />
                     </div>
-                </div>
+                </section>
 
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Engine Type</label>
-                    <select
-                        name="engineType"
-                        value={data.engineType}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="piston">Piston Propeller</option>
-                        <option value="jet">Jet Engine</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Airfoil Selection (Main Wing)</label>
-                    <select
-                        name="airfoil"
-                        value={data.airfoil}
-                        onChange={handleChange}
-                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        <option value="NACA2412">NACA 2412 (Cessna 172)</option>
-                        <option value="NACA0012">NACA 0012 (Symmetric)</option>
-                        <option value="CLARKY">Clark Y (General Purpose)</option>
-                        <option value="E387">Eppler 387 (Soaring)</option>
-                    </select>
-                </div>
-
-                <div className="pt-4 border-t border-slate-700">
-                    <h3 className="text-lg font-semibold text-white mb-4">Tailplane Configuration</h3>
+                {/* 3. Aerodynamics (Wing & Tail) */}
+                <section>
+                    <SectionHeader title="Aerodynamics Configuration" />
 
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Tail Distance from CG (m)</label>
-                            <input
-                                type="number"
-                                name="tailDist"
-                                value={data.tailDist}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
+                        <SelectField
+                            label="Main Wing Airfoil"
+                            name="airfoil"
+                            value={data.airfoil}
+                            options={[
+                                { value: 'NACA2412', label: 'NACA 2412 (Cessna 172)' },
+                                { value: 'NACA0012', label: 'NACA 0012 (Symmetric)' },
+                                { value: 'CLARKY', label: 'Clark Y (General Purpose)' },
+                                { value: 'E387', label: 'Eppler 387 (Soaring)' }
+                            ]}
+                        />
 
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Tail Area (m²)</label>
-                            <input
-                                type="number"
-                                name="tailArea"
-                                value={data.tailArea}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-slate-300 mb-1">Tail Airfoil</label>
-                            <select
-                                name="tailAirfoil"
-                                value={data.tailAirfoil}
-                                onChange={handleChange}
-                                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <option value="NACA0012">NACA 0012 (Symmetric)</option>
-                                <option value="NACA0009">NACA 0009 (Thin Symmetric)</option>
-                                <option value="FLAT">Flat Plate</option>
-                            </select>
+                        <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Tailplane Settings</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <InputField
+                                    label="Distance from CG"
+                                    name="tailDist"
+                                    value={data.tailDist}
+                                    unit="m"
+                                />
+                                <InputField
+                                    label="Tail Area"
+                                    name="tailArea"
+                                    value={data.tailArea}
+                                    unit="m²"
+                                />
+                                <div className="col-span-2">
+                                    <SelectField
+                                        label="Tail Airfoil"
+                                        name="tailAirfoil"
+                                        value={data.tailAirfoil}
+                                        options={[
+                                            { value: 'NACA0012', label: 'NACA 0012 (Symmetric)' },
+                                            { value: 'NACA0009', label: 'NACA 0009 (Thin Symmetric)' },
+                                            { value: 'FLAT', label: 'Flat Plate' }
+                                        ]}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
                 <button
                     type="submit"
-                    className="w-full py-2 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-md shadow-md transition duration-200"
+                    className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-lg shadow-lg shadow-blue-900/20 transition duration-200 transform hover:-translate-y-0.5"
                 >
-                    Initialize Design
+                    Apply Configuration
                 </button>
             </form>
         </div>
