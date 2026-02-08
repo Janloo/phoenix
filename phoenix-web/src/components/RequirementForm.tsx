@@ -6,6 +6,10 @@ interface Requirements {
     payload: number;
     speed: number;
     airfoil: string;
+    engineType: 'piston' | 'jet';
+    tailArea: number;   // m^2
+    tailDist: number;   // m (Arm from CG)
+    tailAirfoil: string;
 }
 
 interface Props {
@@ -85,7 +89,20 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Airfoil Selection</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Engine Type</label>
+                    <select
+                        name="engineType"
+                        value={data.engineType}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="piston">Piston Propeller</option>
+                        <option value="jet">Jet Engine</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Airfoil Selection (Main Wing)</label>
                     <select
                         name="airfoil"
                         value={data.airfoil}
@@ -97,6 +114,48 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                         <option value="CLARKY">Clark Y (General Purpose)</option>
                         <option value="E387">Eppler 387 (Soaring)</option>
                     </select>
+                </div>
+
+                <div className="pt-4 border-t border-slate-700">
+                    <h3 className="text-lg font-semibold text-white mb-4">Tailplane Configuration</h3>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Tail Distance from CG (m)</label>
+                            <input
+                                type="number"
+                                name="tailDist"
+                                value={data.tailDist}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Tail Area (m²)</label>
+                            <input
+                                type="number"
+                                name="tailArea"
+                                value={data.tailArea}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">Tail Airfoil</label>
+                            <select
+                                name="tailAirfoil"
+                                value={data.tailAirfoil}
+                                onChange={handleChange}
+                                className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="NACA0012">NACA 0012 (Symmetric)</option>
+                                <option value="NACA0009">NACA 0009 (Thin Symmetric)</option>
+                                <option value="FLAT">Flat Plate</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <button

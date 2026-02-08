@@ -12,7 +12,11 @@ function App() {
     altitude: 3000,
     payload: 400,
     speed: 60,
-    airfoil: 'NACA2412'
+    airfoil: 'NACA2412',
+    engineType: 'piston',
+    tailArea: 2.0,
+    tailDist: 4.5,
+    tailAirfoil: 'NACA0012'
   });
 
   return (

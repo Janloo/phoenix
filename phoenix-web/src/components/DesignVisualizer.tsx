@@ -68,19 +68,24 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
 
                     <g transform={`translate(${canvasRefX}, ${canvasRefY})`}>
                         {/* Fuselage */}
+                        {/* Centered at 0,0 for now, but visually shifted to look balanced */}
                         <ellipse
                             cx="0"
-                            cy="0"
-                            rx={span * pxPerMeter * 0.1} // Fuselage width proportional to span
-                            ry={span * pxPerMeter * 0.7} // Fuselage length
+                            cy={span * pxPerMeter * 0.15} // Shift fuselage back slightly so nose is ahead of wing
+                            rx={span * pxPerMeter * 0.1} // Width
+                            ry={span * pxPerMeter * 0.7} // Length
                             fill="#334155"
                             stroke="#94a3b8"
                         />
+                        {/* Nose Cone Marker (Green) */}
+                        <circle cx="0" cy={-(span * pxPerMeter * 0.7) + (span * pxPerMeter * 0.15)} r="3" fill="#10b981" opacity="0.5" />
 
-                        {/* Wing (Rectangular for simple visualization) */}
+                        {/* Wing */}
+                        {/* Positioned so Quarter-Chord (Aerodynamic Center) is at (0,0) (The CG location) */}
+                        {/* Top Left Y = -0.25 * Chord */}
                         <rect
                             x={-(span * pxPerMeter) / 2}
-                            y={-(chord * pxPerMeter) / 2 - (span * pxPerMeter * 0.2)} // Offset wing forward
+                            y={-(chord * pxPerMeter) * 0.25}
                             width={span * pxPerMeter}
                             height={chord * pxPerMeter}
                             fill="#3b82f6"
@@ -89,16 +94,94 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
                             rx="4"
                         />
 
-                        {/* Horizontal Stabilizer */}
-                        <rect
-                            x={-(span * 0.4 * pxPerMeter) / 2}
-                            y={(span * 0.5 * pxPerMeter)}
-                            width={span * 0.4 * pxPerMeter}
-                            height={chord * 0.8 * pxPerMeter}
-                            fill="#334155"
-                            stroke="#94a3b8"
-                            rx="2"
-                        />
+                        {/* Horizontal Stabilizer (User Configured) */}
+                        {/* Drawn at distance tailDist from Wing AC (approx CG) */}
+                        {/* Scale: 1 unit = 1 meter */}
+                        {(() => {
+                            // Tail Geometry
+                            // S = b_t * c_t. AR_t ~ 4
+                            // b_t = sqrt(S * 4)
+                            const tailAR = 4;
+                            const tailSpan = Math.sqrt(reqs.tailArea * tailAR);
+                            const tailChord = reqs.tailArea / tailSpan;
+
+                            // Position
+                            // Origin (0,0) is Wing AC / CG location
+                            // So tail leading edge starts around tailDist
+                            // Let's center the tail chord at tailDist for simplicity
+                            const tailY = (reqs.tailDist * pxPerMeter) - (tailChord * pxPerMeter * 0.25);
+
+                            return (
+                                <g>
+                                    <rect
+                                        x={-(tailSpan * pxPerMeter) / 2}
+                                        y={tailY}
+                                        width={tailSpan * pxPerMeter}
+                                        height={tailChord * pxPerMeter}
+                                        fill="#475569"
+                                        stroke="#94a3b8"
+                                        rx="2"
+                                    />
+                                    {/* Tail Fuse Connection (Boom) */}
+                                    <path
+                                        d={`M -${span * pxPerMeter * 0.05} ${chord * pxPerMeter * 0.75} L -${tailSpan * pxPerMeter * 0.08} ${tailY} L ${tailSpan * pxPerMeter * 0.08} ${tailY} L ${span * pxPerMeter * 0.05} ${chord * pxPerMeter * 0.75}`}
+                                        fill="#334155"
+                                        opacity="0.5"
+                                    />
+                                    <text x="0" y={tailY + (tailChord * pxPerMeter) + 15} textAnchor="middle" fontSize="10" fill="#64748b">
+                                        Tail ({reqs.tailAirfoil})
+                                    </text>
+                                </g>
+                            );
+                        })()}
+
+                        {/* CG Symbol */}
+                        <g transform="translate(0, 0)">
+                            {/* Center of Gravity (at Origin/Wing AC) */}
+                            <circle cx="0" cy="0" r="6" fill="None" stroke="#eab308" strokeWidth="2" />
+                            <path d="M 0 -6 L 0 6 M -6 0 L 6 0" stroke="#eab308" strokeWidth="2" />
+                            <circle cx="2" cy="2" r="2" fill="#eab308" stroke="none" />
+                            <circle cx="-2" cy="-2" r="2" fill="#eab308" stroke="none" />
+                            <text x="10" y="4" fontSize="10" fill="#eab308" fontWeight="bold">CG</text>
+                        </g>
+
+                        {/* Engine Visualization */}
+                        {reqs.engineType === 'piston' ? (
+                            // Propeller Arc
+                            <g>
+                                <path
+                                    d={`M -${span * pxPerMeter * 0.25} -${span * pxPerMeter * 0.55} Q 0 -${span * pxPerMeter * 0.65} ${span * pxPerMeter * 0.25} -${span * pxPerMeter * 0.55}`}
+                                    stroke="#cbd5e1"
+                                    strokeWidth="2"
+                                    fill="none"
+                                    strokeDasharray="4 2"
+                                    opacity="0.6"
+                                />
+                                <circle cx="0" cy={-(span * pxPerMeter * 0.55)} r="3" fill="#cbd5e1" />
+                            </g>
+                        ) : (
+                            // Jet Nacelles (Under Wing)
+                            <g>
+                                <rect
+                                    x={-(span * pxPerMeter * 0.15)}
+                                    y={-(chord * pxPerMeter) * 0.25 + (chord * pxPerMeter * 0.5)}
+                                    width={span * pxPerMeter * 0.08}
+                                    height={span * pxPerMeter * 0.15}
+                                    rx="5"
+                                    fill="#475569"
+                                    stroke="#94a3b8"
+                                />
+                                <rect
+                                    x={(span * pxPerMeter * 0.15) - (span * pxPerMeter * 0.08)}
+                                    y={-(chord * pxPerMeter) * 0.25 + (chord * pxPerMeter * 0.5)}
+                                    width={span * pxPerMeter * 0.08}
+                                    height={span * pxPerMeter * 0.15}
+                                    rx="5"
+                                    fill="#475569"
+                                    stroke="#94a3b8"
+                                />
+                            </g>
+                        )};
                     </g>
                 </svg>
 
