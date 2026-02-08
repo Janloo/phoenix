@@ -12,9 +12,14 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
     const mtow = reqs.payload * 2.8 + (reqs.range * 0.1);
 
     // Wing Area: Lift = Weight -> S = W / (0.5 * rho * V^2 * CL)
-    // Assume Cruise Condition: CL ~0.5, rho=1.225
+    // Assume Cruise Condition: CL ~0.5
     const liftCoeff = 0.5;
-    const airDensity = 1.225;
+
+    // Simple ISA Atmosphere Model: rho = 1.225 * (1 - 2.256e-5 * h)^4.256
+    const h = reqs.altitude || 0;
+    const tempRatio = 1 - 2.25577e-5 * h;
+    const airDensity = 1.225 * Math.pow(Math.max(0, tempRatio), 4.25588);
+
     const velocity = reqs.speed || 30; // avoid div/0
     const wingArea = (mtow * 9.81) / (0.5 * airDensity * Math.pow(velocity, 2) * liftCoeff);
 

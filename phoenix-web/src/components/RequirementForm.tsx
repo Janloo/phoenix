@@ -2,6 +2,7 @@ import React from 'react';
 
 interface Requirements {
     range: number;
+    altitude: number;
     payload: number;
     speed: number;
     airfoil: string;
@@ -25,7 +26,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         console.log("Submitted Requirements:", data);
-        alert(`Design Requirements Set:\nRange: ${data.range} km\nPayload: ${data.payload} kg\nSpeed: ${data.speed} m/s\nAirfoil: ${data.airfoil}`);
+        alert(`Requirements:\nRange: ${data.range} km\nAltitude: ${data.altitude} m\nPayload: ${data.payload} kg\nSpeed: ${data.speed} m/s`);
     };
 
     return (
@@ -33,7 +34,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
             <h2 className="text-2xl font-bold mb-6 text-white text-center">Design Requirements</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Range (km)</label>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Flight Range (km)</label>
                     <input
                         type="number"
                         name="range"
@@ -41,6 +42,20 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                         onChange={handleChange}
                         className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Cruise Altitude (m)</label>
+                    <input
+                        type="number"
+                        name="altitude"
+                        value={data.altitude}
+                        onChange={handleChange}
+                        className="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <div className="mt-2 text-xs text-slate-400">
+                        <span>≈ {(data.altitude * 3.28084).toFixed(0)} ft</span>
+                    </div>
                 </div>
 
                 <div>

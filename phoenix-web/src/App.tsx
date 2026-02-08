@@ -9,6 +9,7 @@ function App() {
   const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'settings'>('sizing');
   const [designReqs, setDesignReqs] = useState<Requirements>({
     range: 1000,
+    altitude: 3000,
     payload: 400,
     speed: 60,
     airfoil: 'NACA2412'
