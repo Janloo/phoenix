@@ -2,14 +2,18 @@ import React from 'react';
 import type { Requirements } from './RequirementForm';
 import { getAirfoilPolar } from '../data/airfoilPolars';
 import { calculateGeometry } from '../utils/sizing';
+import type { UnitSystem } from '../utils/units';
+import { convertSpeed, UNIT_CONFIGS } from '../utils/units';
 
 interface Props {
     reqs: Requirements;
+    unitSystem: UnitSystem;
 }
 
-export const Aerodynamics: React.FC<Props> = ({ reqs }) => {
+export const Aerodynamics: React.FC<Props> = ({ reqs, unitSystem }) => {
     // Get polar data for selected airfoil
     const polar = getAirfoilPolar(reqs.airfoil);
+    const config = UNIT_CONFIGS[unitSystem];
 
     // Calculate aircraft geometry
     const { mtow, wingArea } = calculateGeometry(reqs);
@@ -26,6 +30,9 @@ export const Aerodynamics: React.FC<Props> = ({ reqs }) => {
     const rho = 1.225 * Math.pow(Math.max(0, tempRatio), 4.25588);
     const weight = mtow * 9.81;
     const vstall = Math.sqrt((2 * weight) / (rho * wingArea * clMax));
+
+    // Convert to display units
+    const vstallDisplay = convertSpeed(vstall, unitSystem);
 
     // Find best L/D
     const ldRatios = polar.data.map(p => ({ alpha: p.alpha, ld: p.cl / p.cd, cl: p.cl, cd: p.cd }));
@@ -87,8 +94,7 @@ export const Aerodynamics: React.FC<Props> = ({ reqs }) => {
             <div className="grid grid-cols-3 gap-4">
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Stall Speed</p>
-                    <p className="text-xl font-bold text-red-400">{vstall.toFixed(1)} <span className="text-sm font-normal text-slate-500">m/s</span></p>
-                    <p className="text-xs text-slate-500 mt-1">{(vstall * 1.94384).toFixed(0)} kts</p>
+                    <p className="text-xl font-bold text-red-400">{vstallDisplay.toFixed(1)} <span className="text-sm font-normal text-slate-500">{config.speedShort}</span></p>
                 </div>
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Max C<sub>L</sub></p>

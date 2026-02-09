@@ -1,17 +1,16 @@
 import React from 'react';
 import type { Requirements } from './RequirementForm';
-
-interface Props {
-    reqs: Requirements;
-}
-
 import { calculateGeometry } from '../utils/sizing';
+import type { UnitSystem } from '../utils/units';
+import { convertArea, convertForce, convertMass, UNIT_CONFIGS } from '../utils/units';
 
 interface Props {
     reqs: Requirements;
+    unitSystem: UnitSystem;
 }
 
-export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
+export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
+    const config = UNIT_CONFIGS[unitSystem];
     // Use centralized sizing logic
     const { mtow, wingArea, span, chord } = calculateGeometry(reqs);
 
@@ -25,9 +24,10 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
     if (reqs.engineType === 'jet') {
         const thrustKN = dragN / 1000;
         // Jet needs slightly more static thrust than cruise drag (approx 1.2-1.5x)
+        const thrustValue = convertForce(thrustKN * 1.5, unitSystem);
         powerInfo = {
-            value: thrustKN * 1.5,
-            unit: 'kN',
+            value: thrustValue,
+            unit: config.forceShort,
             label: 'Min Static Thrust'
         };
     } else {
@@ -53,14 +53,14 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
     return (
         <div className="space-y-6">
             {/* Real-time Metrics */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-4 gap-4 mb-6">
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
-                    <p className="text-xs text-slate-400 uppercase tracking-widest">Est. MTOW</p>
-                    <p className="text-xl font-bold text-white">{mtow.toFixed(0)} <span className="text-sm font-normal text-slate-500">kg</span></p>
+                    <p className="text-xs text-slate-400 uppercase tracking-widest">MTOW</p>
+                    <p className="text-xl font-bold text-white">{convertMass(mtow, unitSystem).toFixed(1)} <span className="text-sm font-normal text-slate-500">{config.massShort}</span></p>
                 </div>
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Wing Area</p>
-                    <p className="text-xl font-bold text-white">{wingArea.toFixed(1)} <span className="text-sm font-normal text-slate-500">m²</span></p>
+                    <p className="text-xl font-bold text-white">{convertArea(wingArea, unitSystem).toFixed(1)} <span className="text-sm font-normal text-slate-500">{config.areaShort}</span></p>
                 </div>
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Wingspan</p>

@@ -5,9 +5,17 @@ import { DesignVisualizer } from './components/DesignVisualizer'
 import { Aerodynamics } from './components/Aerodynamics'
 import { Settings } from './components/Settings'
 import { calculateGeometry, calculateTailArea, calculateTailDist } from './utils/sizing'
+import type { UnitSystem } from './utils/units'
 
 function App() {
   const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'settings'>('sizing');
+
+  // Unit System State (with localStorage persistence)
+  const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => {
+    const saved = localStorage.getItem('phoenix-unit-system');
+    return (saved === 'imperial' || saved === 'metric') ? saved : 'metric';
+  });
+
   const [designReqs, setDesignReqs] = useState<Requirements>({
     range: 1000,
     altitude: 3000,
@@ -19,6 +27,11 @@ function App() {
     tailDist: 4.5,
     tailAirfoil: 'NACA0012'
   });
+
+  // Save unit system preference
+  useEffect(() => {
+    localStorage.setItem('phoenix-unit-system', unitSystem);
+  }, [unitSystem]);
 
   // Reactive Sizing Logic
   // 1 pass: When Mission/Wing params change, update Tail Area (keeping Arm constant)
@@ -106,20 +119,20 @@ function App() {
                 </p>
               </div>
 
-              <DesignVisualizer reqs={designReqs} />
+              <DesignVisualizer reqs={designReqs} unitSystem={unitSystem} />
             </div>
 
             {/* Right Column: Input Form */}
             <div>
-              <RequirementForm data={designReqs} onChange={handleDesignChange} />
+              <RequirementForm data={designReqs} onChange={handleDesignChange} unitSystem={unitSystem} />
             </div>
 
           </div>
         )}
 
-        {currentView === 'aero' && <Aerodynamics reqs={designReqs} />}
+        {currentView === 'aero' && <Aerodynamics reqs={designReqs} unitSystem={unitSystem} />}
 
-        {currentView === 'settings' && <Settings />}
+        {currentView === 'settings' && <Settings unitSystem={unitSystem} onUnitSystemChange={setUnitSystem} />}
 
       </main>
     </div>

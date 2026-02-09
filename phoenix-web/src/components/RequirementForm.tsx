@@ -1,29 +1,44 @@
 import React from 'react';
+import type { UnitSystem } from '../utils/units';
+import { convertDistance, convertSpeed, convertAltitude, convertMass, convertArea, reverseConvertDistance, reverseConvertSpeed, reverseConvertAltitude, reverseConvertMass, reverseConvertArea, UNIT_CONFIGS } from '../utils/units';
 
 interface Requirements {
-    range: number;
-    altitude: number;
-    payload: number;
-    speed: number;
+    range: number;      // Always stored in metric (km)
+    altitude: number;   // Always stored in metric (m)
+    payload: number;    // Always stored in metric (kg)
+    speed: number;      // Always stored in metric (m/s)
     airfoil: string;
     engineType: 'piston' | 'jet';
-    tailArea: number;   // m^2
-    tailDist: number;   // m (Arm from CG)
+    tailArea: number;   // Always stored in metric (m^2)
+    tailDist: number;   // Always stored in metric (m)
     tailAirfoil: string;
 }
 
 interface Props {
     data: Requirements;
     onChange: (data: Requirements) => void;
+    unitSystem: UnitSystem;
 }
 
-export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
+export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem }) => {
+    const config = UNIT_CONFIGS[unitSystem];
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+
+        // For non-string fields, convert from display units back to metric for storage
+        let metricValue = parseFloat(value) || 0;
+
+        if (name === 'range') metricValue = reverseConvertDistance(metricValue, unitSystem);
+        else if (name === 'speed') metricValue = reverseConvertSpeed(metricValue, unitSystem);
+        else if (name === 'altitude') metricValue = reverseConvertAltitude(metricValue, unitSystem);
+        else if (name === 'payload') metricValue = reverseConvertMass(metricValue, unitSystem);
+        else if (name === 'tailArea') metricValue = reverseConvertArea(metricValue, unitSystem);
+        // tailDist stays in meters (it's small)
+
         onChange({
             ...data,
-            [name]: (name === 'airfoil' || name === 'engineType' || name === 'tailAirfoil') ? value : (parseFloat(value) || 0)
+            [name]: (name === 'airfoil' || name === 'engineType' || name === 'tailAirfoil') ? value : metricValue
         });
     };
 
@@ -39,11 +54,14 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
         </div>
     );
 
-    // Custom Number Input with Button Spinners
+    // Custom Number Input with Button Spinners(with unit conversion for display)
     const InputField = ({ label, name, value, type = "number", unit, subtext, step = 1, min = 0 }: any) => {
 
+        // Display value (already converted in parent)
+        const displayValue = value;
+
         const handleIncrement = (delta: number) => {
-            const currentVal = parseFloat(value) || 0;
+            const currentVal = parseFloat(displayValue) || 0;
             const newVal = Math.max(min, currentVal + delta);
             // Create a synthetic event to reuse existing handler
             const syntheticEvent = {
@@ -134,34 +152,32 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                     <SectionHeader title="Mission Profile" />
                     <div className="grid grid-cols-2 gap-6">
                         <InputField
-                            label="Max Range (km)"
+                            label={`Max Range (${config.distanceShort})`}
                             name="range"
-                            value={data.range}
-                            unit="km"
-                            step={50}
+                            value={convertDistance(data.range, unitSystem).toFixed(1)}
+                            unit={config.distanceShort}
+                            step={unitSystem === 'metric' ? 50 : 10}
                         />
                         <InputField
-                            label="Cruise Altitude (m)"
+                            label={`Cruise Altitude (${config.altitudeShort})`}
                             name="altitude"
-                            value={data.altitude}
-                            unit="m"
-                            step={100}
-                            subtext={`≈ ${(data.altitude * 3.28084).toFixed(0)} ft`}
+                            value={convertAltitude(data.altitude, unitSystem).toFixed(0)}
+                            unit={config.altitudeShort}
+                            step={unitSystem === 'metric' ? 100 : 500}
                         />
                         <InputField
-                            label="Payload Mass (kg)"
+                            label={`Payload Mass (${config.massShort})`}
                             name="payload"
-                            value={data.payload}
-                            unit="kg"
-                            step={10}
+                            value={convertMass(data.payload, unitSystem).toFixed(0)}
+                            unit={config.massShort}
+                            step={unitSystem === 'metric' ? 10 : 20}
                         />
                         <InputField
-                            label="Cruise Speed (m/s)"
+                            label={`Cruise Speed (${config.speedShort})`}
                             name="speed"
-                            value={data.speed}
-                            unit="m/s"
-                            step={1}
-                            subtext={`${(data.speed * 1.94384).toFixed(0)} kts`}
+                            value={convertSpeed(data.speed, unitSystem).toFixed(1)}
+                            unit={config.speedShort}
+                            step={unitSystem === 'metric' ? 1 : 5}
                         />
                     </div>
                 </section>
@@ -203,18 +219,18 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Tailplane Settings</label>
                             <div className="grid grid-cols-2 gap-4">
                                 <InputField
-                                    label="Distance from CG"
+                                    label="Distance from CG (m)"
                                     name="tailDist"
-                                    value={data.tailDist}
+                                    value={data.tailDist.toFixed(2)}
                                     unit="m"
                                     step={0.1}
                                 />
                                 <InputField
-                                    label="Tail Area"
+                                    label={`Tail Area (${config.areaShort})`}
                                     name="tailArea"
-                                    value={data.tailArea}
-                                    unit="m²"
-                                    step={0.1}
+                                    value={convertArea(data.tailArea, unitSystem).toFixed(2)}
+                                    unit={config.areaShort}
+                                    step={unitSystem === 'metric' ? 0.1 : 1}
                                 />
                                 <div className="col-span-2">
                                     <SelectField
