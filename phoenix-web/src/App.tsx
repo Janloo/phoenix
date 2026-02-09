@@ -3,12 +3,13 @@ import { RequirementForm } from './components/RequirementForm'
 import type { Requirements } from './components/RequirementForm'
 import { DesignVisualizer } from './components/DesignVisualizer'
 import { Aerodynamics } from './components/Aerodynamics'
+import { Geometry } from './components/Geometry'
 import { Settings } from './components/Settings'
 import { calculateGeometry, calculateTailArea, calculateTailDist } from './utils/sizing'
 import type { UnitSystem } from './utils/units'
 
 function App() {
-  const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'settings'>('sizing');
+  const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'geometry' | 'settings'>('sizing');
 
   // Unit System State (with localStorage persistence)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => {
@@ -25,7 +26,12 @@ function App() {
     engineType: 'piston',
     tailArea: 2.0,
     tailDist: 4.5,
-    tailAirfoil: 'NACA0012'
+    tailAirfoil: 'NACA0012',
+    // Planform geometry defaults
+    wingTaperRatio: 0.6,
+    wingSweep: 0,
+    tailTaperRatio: 0.7,
+    tailSweep: 0
   });
 
   // Save unit system preference
@@ -95,6 +101,12 @@ function App() {
                 Aerodynamics
               </li>
               <li
+                onClick={() => setCurrentView('geometry')}
+                className={`cursor-pointer transition ${currentView === 'geometry' ? 'text-white border-b-2 border-blue-500' : 'hover:text-white'}`}
+              >
+                Geometry
+              </li>
+              <li
                 onClick={() => setCurrentView('settings')}
                 className={`cursor-pointer transition ${currentView === 'settings' ? 'text-white border-b-2 border-blue-500' : 'hover:text-white'}`}
               >
@@ -131,6 +143,8 @@ function App() {
         )}
 
         {currentView === 'aero' && <Aerodynamics reqs={designReqs} unitSystem={unitSystem} />}
+
+        {currentView === 'geometry' && <Geometry reqs={designReqs} onChange={setDesignReqs} unitSystem={unitSystem} />}
 
         {currentView === 'settings' && <Settings unitSystem={unitSystem} onUnitSystemChange={setUnitSystem} />}
 

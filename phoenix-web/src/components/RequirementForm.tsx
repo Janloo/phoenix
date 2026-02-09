@@ -12,6 +12,11 @@ interface Requirements {
     tailArea: number;   // Always stored in metric (m^2)
     tailDist: number;   // Always stored in metric (m)
     tailAirfoil: string;
+    // Planform geometry
+    wingTaperRatio: number;  // Tip chord / Root chord (0.3 - 1.0)
+    wingSweep: number;       // Sweep angle in degrees (0 - 30)
+    tailTaperRatio: number;  // Tip chord / Root chord (0.3 - 1.0)
+    tailSweep: number;       // Sweep angle in degrees (0 - 30)
 }
 
 interface Props {
