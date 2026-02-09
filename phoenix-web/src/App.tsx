@@ -117,7 +117,7 @@ function App() {
           </div>
         )}
 
-        {currentView === 'aero' && <Aerodynamics />}
+        {currentView === 'aero' && <Aerodynamics reqs={designReqs} />}
 
         {currentView === 'settings' && <Settings />}
 
