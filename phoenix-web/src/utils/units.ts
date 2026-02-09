@@ -17,6 +17,8 @@ export interface UnitConfig {
     powerShort: string;
     force: string;
     forceShort: string;
+    length: string;
+    lengthShort: string;
 }
 
 export const UNIT_CONFIGS: Record<UnitSystem, UnitConfig> = {
@@ -35,6 +37,8 @@ export const UNIT_CONFIGS: Record<UnitSystem, UnitConfig> = {
         powerShort: 'hp',
         force: 'kilonewtons',
         forceShort: 'kN',
+        length: 'meters',
+        lengthShort: 'm',
     },
     imperial: {
         distance: 'nautical miles',
@@ -51,6 +55,8 @@ export const UNIT_CONFIGS: Record<UnitSystem, UnitConfig> = {
         powerShort: 'hp',
         force: 'pounds-force',
         forceShort: 'lbf',
+        length: 'feet',
+        lengthShort: 'ft',
     }
 };
 
@@ -79,6 +85,10 @@ export const convertForce = (valueKn: number, to: UnitSystem): number => {
     return to === 'imperial' ? valueKn * 224.809 : valueKn; // kN to lbf
 };
 
+export const convertLength = (valueM: number, to: UnitSystem): number => {
+    return to === 'imperial' ? valueM * 3.28084 : valueM; // m to ft
+};
+
 // Reverse conversions (from display units back to metric for storage)
 export const reverseConvertDistance = (value: number, from: UnitSystem): number => {
     return from === 'imperial' ? value / 0.539957 : value; // NM to km
@@ -98,6 +108,10 @@ export const reverseConvertMass = (value: number, from: UnitSystem): number => {
 
 export const reverseConvertArea = (value: number, from: UnitSystem): number => {
     return from === 'imperial' ? value / 10.7639 : value; // ft² to m²
+};
+
+export const reverseConvertLength = (value: number, from: UnitSystem): number => {
+    return from === 'imperial' ? value / 3.28084 : value; // ft to m
 };
 
 // Helper function for formatting values

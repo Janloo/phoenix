@@ -1,6 +1,6 @@
 import React from 'react';
 import type { UnitSystem } from '../utils/units';
-import { convertDistance, convertSpeed, convertAltitude, convertMass, convertArea, reverseConvertDistance, reverseConvertSpeed, reverseConvertAltitude, reverseConvertMass, reverseConvertArea, UNIT_CONFIGS } from '../utils/units';
+import { convertDistance, convertSpeed, convertAltitude, convertMass, convertArea, convertLength, reverseConvertDistance, reverseConvertSpeed, reverseConvertAltitude, reverseConvertMass, reverseConvertArea, reverseConvertLength, UNIT_CONFIGS } from '../utils/units';
 
 interface Requirements {
     range: number;      // Always stored in metric (km)
@@ -34,7 +34,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
         else if (name === 'altitude') metricValue = reverseConvertAltitude(metricValue, unitSystem);
         else if (name === 'payload') metricValue = reverseConvertMass(metricValue, unitSystem);
         else if (name === 'tailArea') metricValue = reverseConvertArea(metricValue, unitSystem);
-        // tailDist stays in meters (it's small)
+        else if (name === 'tailDist') metricValue = reverseConvertLength(metricValue, unitSystem);
 
         onChange({
             ...data,
@@ -219,11 +219,11 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Tailplane Settings</label>
                             <div className="grid grid-cols-2 gap-4">
                                 <InputField
-                                    label="Distance from CG (m)"
+                                    label={`Distance from CG (${config.lengthShort})`}
                                     name="tailDist"
-                                    value={data.tailDist.toFixed(2)}
-                                    unit="m"
-                                    step={0.1}
+                                    value={convertLength(data.tailDist, unitSystem).toFixed(2)}
+                                    unit={config.lengthShort}
+                                    step={unitSystem === 'metric' ? 0.1 : 0.5}
                                 />
                                 <InputField
                                     label={`Tail Area (${config.areaShort})`}

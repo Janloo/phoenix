@@ -2,7 +2,7 @@ import React from 'react';
 import type { Requirements } from './RequirementForm';
 import { calculateGeometry } from '../utils/sizing';
 import type { UnitSystem } from '../utils/units';
-import { convertArea, convertForce, convertMass, UNIT_CONFIGS } from '../utils/units';
+import { convertArea, convertForce, convertMass, convertLength, UNIT_CONFIGS } from '../utils/units';
 
 interface Props {
     reqs: Requirements;
@@ -64,7 +64,7 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                 </div>
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center">
                     <p className="text-xs text-slate-400 uppercase tracking-widest">Wingspan</p>
-                    <p className="text-xl font-bold text-white">{span.toFixed(1)} <span className="text-sm font-normal text-slate-500">m</span></p>
+                    <p className="text-xl font-bold text-white">{convertLength(span, unitSystem).toFixed(1)} <span className="text-sm font-normal text-slate-500">{config.lengthShort}</span></p>
                 </div>
                 <div className="bg-slate-800 p-4 rounded-lg border border-slate-700 text-center ring-1 ring-blue-500/50">
                     <p className="text-xs text-blue-400 uppercase tracking-widest">{powerInfo.label}</p>
