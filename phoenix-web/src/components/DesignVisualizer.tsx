@@ -5,29 +5,15 @@ interface Props {
     reqs: Requirements;
 }
 
+import { calculateGeometry } from '../utils/sizing';
+
+interface Props {
+    reqs: Requirements;
+}
+
 export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
-    // 1. Heuristic Sizing (Very simplified for demo)
-    // MTOW approx linear to payload + range fuel
-    // C172: Payload ~400kg, MTOW ~1100kg -> factor ~2.75
-    const mtow = reqs.payload * 2.8 + (reqs.range * 0.1);
-
-    // Wing Area: Lift = Weight -> S = W / (0.5 * rho * V^2 * CL)
-    // Assume Cruise Condition: CL ~0.5
-    const liftCoeff = 0.5;
-
-    // Simple ISA Atmosphere Model: rho = 1.225 * (1 - 2.256e-5 * h)^4.256
-    const h = reqs.altitude || 0;
-    const tempRatio = 1 - 2.25577e-5 * h;
-    const airDensity = 1.225 * Math.pow(Math.max(0, tempRatio), 4.25588);
-
-    const velocity = reqs.speed || 30; // avoid div/0
-    const wingArea = (mtow * 9.81) / (0.5 * airDensity * Math.pow(velocity, 2) * liftCoeff);
-
-    // Geometry: Aspect Ratio = 8 (Typical GA)
-    // S = b^2 / AR -> b = sqrt(S * AR)
-    const aspectRatio = 8;
-    const span = Math.sqrt(wingArea * aspectRatio);
-    const chord = wingArea / span;
+    // Use centralized sizing logic
+    const { mtow, wingArea, span, chord } = calculateGeometry(reqs);
 
     // Power / Thrust Estimation
     // Assume L/D ~ 12-14 for GA Cruise
@@ -47,6 +33,7 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs }) => {
     } else {
         // Piston Prop
         // Power = Drag * V / prop_efficiency
+        const velocity = reqs.speed || 30;
         const propEff = 0.8;
         const powerWatts = (dragN * velocity) / propEff;
         const powerHP = powerWatts / 745.7;

@@ -39,22 +39,73 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
         </div>
     );
 
-    const InputField = ({ label, name, value, type = "number", unit, subtext }: any) => (
-        <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
-            <div className="relative">
-                <input
-                    type={type}
-                    name={name}
-                    value={value}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-                {unit && <span className="absolute right-3 top-2 text-slate-500 text-sm">{unit}</span>}
+    // Custom Number Input with Button Spinners
+    const InputField = ({ label, name, value, type = "number", unit, subtext, step = 1, min = 0 }: any) => {
+
+        const handleIncrement = (delta: number) => {
+            const currentVal = parseFloat(value) || 0;
+            const newVal = Math.max(min, currentVal + delta);
+            // Create a synthetic event to reuse existing handler
+            const syntheticEvent = {
+                target: {
+                    name,
+                    value: Number.isInteger(step) ? newVal.toString() : newVal.toFixed(2)
+                }
+            } as any;
+            handleChange(syntheticEvent);
+        };
+
+        return (
+            <div>
+                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
+                <div className="relative flex items-center">
+                    {/* Decrement Button */}
+                    {type === "number" && (
+                        <button
+                            type="button"
+                            onClick={() => handleIncrement(-step)}
+                            className="bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-l-md px-3 py-2 text-slate-300 hover:text-white transition-colors"
+                        >
+                            -
+                        </button>
+                    )}
+
+                    <input
+                        type={type}
+                        name={name}
+                        value={value}
+                        step={step}
+                        min={min}
+                        onChange={handleChange}
+                        className={`w-full px-3 py-2 bg-slate-700/50 border-y border-slate-600 text-white focus:outline-none focus:ring-0 text-center ${type !== 'number' ? 'rounded-md border-x' : ''}`}
+                        style={{ MozAppearance: 'textfield' }} // Hide Firefox spinner
+                    />
+
+                    {/* Increment Button */}
+                    {type === "number" && (
+                        <button
+                            type="button"
+                            onClick={() => handleIncrement(step)}
+                            className="bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-r-md px-3 py-2 text-slate-300 hover:text-white transition-colors"
+                        >
+                            +
+                        </button>
+                    )}
+
+                    {unit && <span className="absolute right-12 top-2 text-slate-500 text-sm pointer-events-none">{unit}</span>}
+                </div>
+                {/* CSS to hide Chrome/Safari/Edge spinners */}
+                <style>{`
+                    input[type=number]::-webkit-inner-spin-button, 
+                    input[type=number]::-webkit-outer-spin-button { 
+                        -webkit-appearance: none; 
+                        margin: 0; 
+                    }
+                `}</style>
+                {subtext && <div className="mt-1 text-xs text-slate-500">{subtext}</div>}
             </div>
-            {subtext && <div className="mt-1 text-xs text-slate-500">{subtext}</div>}
-        </div>
-    );
+        );
+    };
 
     const SelectField = ({ label, name, value, options }: any) => (
         <div>
@@ -83,29 +134,33 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                     <SectionHeader title="Mission Profile" />
                     <div className="grid grid-cols-2 gap-6">
                         <InputField
-                            label="Max Range"
+                            label="Max Range (km)"
                             name="range"
                             value={data.range}
                             unit="km"
+                            step={50}
                         />
                         <InputField
-                            label="Cruise Altitude"
+                            label="Cruise Altitude (m)"
                             name="altitude"
                             value={data.altitude}
                             unit="m"
+                            step={100}
                             subtext={`≈ ${(data.altitude * 3.28084).toFixed(0)} ft`}
                         />
                         <InputField
-                            label="Payload Mass"
+                            label="Payload Mass (kg)"
                             name="payload"
                             value={data.payload}
                             unit="kg"
+                            step={10}
                         />
                         <InputField
-                            label="Cruise Speed"
+                            label="Cruise Speed (m/s)"
                             name="speed"
                             value={data.speed}
                             unit="m/s"
+                            step={1}
                             subtext={`${(data.speed * 1.94384).toFixed(0)} kts`}
                         />
                     </div>
@@ -152,12 +207,14 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange }) => {
                                     name="tailDist"
                                     value={data.tailDist}
                                     unit="m"
+                                    step={0.1}
                                 />
                                 <InputField
                                     label="Tail Area"
                                     name="tailArea"
                                     value={data.tailArea}
                                     unit="m²"
+                                    step={0.1}
                                 />
                                 <div className="col-span-2">
                                     <SelectField

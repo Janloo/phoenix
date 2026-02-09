@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { RequirementForm } from './components/RequirementForm'
 import type { Requirements } from './components/RequirementForm'
 import { DesignVisualizer } from './components/DesignVisualizer'
 import { Aerodynamics } from './components/Aerodynamics'
 import { Settings } from './components/Settings'
+import { calculateGeometry, calculateTailArea, calculateTailDist } from './utils/sizing'
 
 function App() {
   const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'settings'>('sizing');
@@ -18,6 +19,45 @@ function App() {
     tailDist: 4.5,
     tailAirfoil: 'NACA0012'
   });
+
+  // Reactive Sizing Logic
+  // 1 pass: When Mission/Wing params change, update Tail Area (keeping Arm constant)
+  useEffect(() => {
+    const geom = calculateGeometry(designReqs);
+    // Recalculate suggested tail area for the *current* distance
+    const suggestedTailArea = calculateTailArea(geom.wingArea, geom.chord, designReqs.tailDist);
+
+    if (Math.abs(suggestedTailArea - designReqs.tailArea) > 0.05) {
+      setDesignReqs(prev => ({
+        ...prev,
+        tailArea: parseFloat(suggestedTailArea.toFixed(2))
+      }));
+    }
+  }, [designReqs.range, designReqs.payload, designReqs.speed, designReqs.altitude, designReqs.airfoil]); // Removed tailDist/Area from deps
+
+  // Intelligent Change Handler
+  const handleDesignChange = (newReqs: Requirements) => {
+    // Check for Active Tail Updates
+    const geom = calculateGeometry(newReqs);
+
+    // 1. User changed Tail Area -> Update Distance
+    if (Math.abs(newReqs.tailArea - designReqs.tailArea) > 0.001) {
+      const newDist = calculateTailDist(geom.wingArea, geom.chord, newReqs.tailArea);
+      if (newDist > 0) {
+        newReqs.tailDist = parseFloat(newDist.toFixed(2));
+      }
+    }
+    // 2. User changed Tail Distance -> Update Area
+    else if (Math.abs(newReqs.tailDist - designReqs.tailDist) > 0.001) {
+      const newArea = calculateTailArea(geom.wingArea, geom.chord, newReqs.tailDist);
+      if (newArea > 0) {
+        newReqs.tailArea = parseFloat(newArea.toFixed(2));
+      }
+    }
+
+    setDesignReqs(newReqs);
+  };
+
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200">
@@ -71,7 +111,7 @@ function App() {
 
             {/* Right Column: Input Form */}
             <div>
-              <RequirementForm data={designReqs} onChange={setDesignReqs} />
+              <RequirementForm data={designReqs} onChange={handleDesignChange} />
             </div>
 
           </div>
