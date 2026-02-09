@@ -76,9 +76,9 @@ export const Geometry: React.FC<Props> = ({ reqs, onChange, unitSystem }) => {
             // Root trailing edge (left side, tail/aft - positive Y)
             [centerX - displaySpan / 2, centerY + displayRoot / 2],
             // Tip trailing edge (right side, tail/aft - NO sweep, stays aligned)
-            [centerX + displaySpan / 2, centerY + displayTip / 2],
+            [centerX + displaySpan / 2, centerY + (displayTip / 2) + sweepOffsetLE],
             // Tip leading edge (right side, nose/forward - SWEPT BACK)
-            [centerX + displaySpan / 2, centerY - displayTip / 2 + sweepOffsetLE]
+            [centerX + displaySpan / 2, centerY + sweepOffsetLE - (displayTip / 2)]
         ];
 
         return (
