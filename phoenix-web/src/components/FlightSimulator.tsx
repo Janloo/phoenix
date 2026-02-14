@@ -293,8 +293,8 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
     return (
         <div className="w-full h-[600px] relative bg-black rounded-lg overflow-hidden border border-slate-700">
             {/* 3D Viewport */}
-            <Canvas shadows camera={{ fov: 60 }}>
-                <Sky sunPosition={[100, 20, 100]} />
+            <Canvas shadows camera={{ fov: 60, far: 500000 }}>
+                <Sky sunPosition={[100, 20, 100]} distance={450000} />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} castShadow />
 
