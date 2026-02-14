@@ -78,7 +78,7 @@ const ChaseCamera = ({ position, quaternion }: { position: THREE.Vector3, quater
 // --- Main Simulation Scene ---
 const SimulationScene: React.FC<{ reqs: Requirements; setTelemetry: (t: any) => void }> = ({ reqs, setTelemetry }) => {
     // Physics State
-    const position = useRef(new THREE.Vector3(0, 10, 0)); // Start at 10m
+    const position = useRef(new THREE.Vector3(0, 0, 0)); // Start on ground
     const velocity = useRef(new THREE.Vector3(0, 0, 0)); // Start stationary
     const quaternion = useRef(new THREE.Quaternion());
     const euler = useRef(new THREE.Euler(0, 0, 0, 'YXZ')); // Pitch, Yaw, Roll
@@ -160,7 +160,7 @@ const SimulationScene: React.FC<{ reqs: Requirements; setTelemetry: (t: any) => 
             position.current.y = 0;
             velocity.current.y = Math.max(0, velocity.current.y);
             // Friction
-            velocity.current.multiplyScalar(0.95);
+            velocity.current.multiplyScalar(0.99); // Rolling resistance
         }
 
         // Update Orientation
