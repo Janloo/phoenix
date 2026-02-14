@@ -60,27 +60,18 @@ const Aircraft: React.FC<{ reqs: Requirements; pitch: number; roll: number; yaw:
 };
 
 // --- Camera Controller ---
-const ChaseCamera = ({ position, quaternion }: { position: THREE.Vector3, quaternion: THREE.Quaternion }) => {
+// --- Camera Controller ---
+const CockpitCamera = ({ position, quaternion }: { position: THREE.Vector3, quaternion: THREE.Quaternion }) => {
     const { camera } = useThree();
-    const offsetDistance = 15;
-    const offsetHeight = 5;
 
     useFrame(() => {
-        // Calculate stable "behind" position
-        // 1. Get actual forward vector of aircraft
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion);
-        // 2. Flatten to horizontal plane (XZ) to keep camera level
-        forward.y = 0;
-        forward.normalize();
+        // Offset for pilot's head (e.g., slightly up and forward)
+        // 0.5m up, 2m forward (relative to center)
+        const offset = new THREE.Vector3(0, 0.5, -2).applyQuaternion(quaternion);
+        const camPos = position.clone().add(offset);
 
-        // 3. Target position: Plane Pos - (Forward * Distance) + (Up * Height)
-        const targetPos = position.clone()
-            .sub(forward.multiplyScalar(offsetDistance))
-            .add(new THREE.Vector3(0, offsetHeight, 0));
-
-        // Smoothly interpolate camera position
-        camera.position.lerp(targetPos, 0.1);
-        camera.lookAt(position);
+        camera.position.copy(camPos);
+        camera.quaternion.copy(quaternion);
     });
     return null;
 };
@@ -261,7 +252,7 @@ const SimulationScene: React.FC<{
     return (
         <group position={position.current}>
             <Aircraft reqs={reqs} pitch={euler.current.x} roll={euler.current.z} yaw={euler.current.y} />
-            <ChaseCamera position={position.current} quaternion={quaternion.current} />
+            <CockpitCamera position={position.current} quaternion={quaternion.current} />
         </group>
     );
 };
