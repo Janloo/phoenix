@@ -21,6 +21,10 @@ interface Requirements {
     enginePos: number;
     fuelPos: number;
     structurePos: number;
+    // Mass Values (kg)
+    engineMass: number;
+    fuelMass: number;
+    structureMass: number;
 }
 
 interface Props {

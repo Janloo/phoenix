@@ -20,7 +20,16 @@ export const getDesignLiftCoefficient = (airfoil: string): number => {
 
 export const calculateGeometry = (reqs: any): SizingResult => {
     // 1. MTOW Estimation
-    const mtow = reqs.payload * 2.8 + (reqs.range * 0.1);
+    // If manual masses are set, use them. Otherwise use heuristic.
+    let mtow = 0;
+    const manualMassSum = (reqs.engineMass || 0) + (reqs.fuelMass || 0) + (reqs.structureMass || 0);
+
+    if (manualMassSum > 10) { // Threshold to assume valid inputs
+        mtow = manualMassSum + reqs.payload;
+    } else {
+        // Fallback Heuristic
+        mtow = reqs.payload * 2.8 + (reqs.range * 0.1);
+    }
 
     // 2. Wing Area Calculation
     const Cl = getDesignLiftCoefficient(reqs.airfoil) || 0.4; // Fallback if 0

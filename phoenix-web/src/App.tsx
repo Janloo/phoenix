@@ -37,7 +37,10 @@ function App() {
     // Mass & Balance Defaults
     enginePos: -0.5, // Ahead of wing
     fuelPos: 0,      // Near CG
-    structurePos: 1.0 // Behind wing (Tail boom etc)
+    structurePos: 1.0, // Behind wing (Tail boom etc)
+    engineMass: 0,   // 0 = Auto-calculated
+    fuelMass: 0,     // 0 = Auto-calculated
+    structureMass: 0 // 0 = Auto-calculated
   });
 
   // Save unit system preference

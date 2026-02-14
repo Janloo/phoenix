@@ -28,77 +28,110 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
     const formatMass = (val: number) => convertMass(val, unitSystem).toFixed(0);
     const formatLen = (val: number) => convertLength(val, unitSystem).toFixed(2);
 
-    const updatePos = (key: keyof Requirements, val: number) => {
+    const updateReq = (key: keyof Requirements, val: number) => {
         onChange({ ...reqs, [key]: val });
+    };
+
+    const massUnit = unitSystem === 'metric' ? 'kg' : 'lbs';
+    const lenUnit = unitSystem === 'metric' ? 'm' : 'ft';
+
+    // Helper Component for Mass Controls
+    const MassControl = ({ label, massKey, posKey, color, massVal, posVal }: any) => {
+        const currentMass = reqs[massKey as keyof Requirements] as number;
+        const isAuto = !currentMass || currentMass <= 0;
+        const displayMass = isAuto ? massVal : currentMass;
+
+        return (
+            <div className="mb-6 bg-slate-700/30 p-4 rounded-lg border border-slate-700">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
+                        {label}
+                    </label>
+                    <div className="text-xs text-slate-500 font-mono">
+                        {isAuto ? '(Auto)' : '(Manual)'}
+                    </div>
+                </div>
+
+                {/* Mass Input */}
+                <div className="flex items-center gap-4 mb-3">
+                    <label className="text-xs text-slate-400 w-16">Mass ({massUnit})</label>
+                    <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={convertMass(displayMass, unitSystem).toFixed(0)}
+                        onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const metricVal = unitSystem === 'metric' ? val : val / 2.20462;
+                            updateReq(massKey, metricVal);
+                        }}
+                        className="w-24 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-right text-white text-sm"
+                    />
+                </div>
+
+                {/* Position Slider */}
+                <div className="space-y-1">
+                    <div className="flex justify-between text-xs text-slate-400">
+                        <span>Position ({lenUnit})</span>
+                        <span className="font-mono text-white">{formatLen(posVal)}</span>
+                    </div>
+                    <input
+                        type="range"
+                        min="-5" max="10" step="0.1"
+                        value={posVal || 0}
+                        onChange={(e) => updateReq(posKey, parseFloat(e.target.value))}
+                        className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-600">
+                        <span>Fwd</span>
+                        <span>Aft</span>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Controls */}
             <div className="space-y-6">
-                <div className="bg-slate-800 p-6 rounded-xl border border-slate-700">
+                <div className="bg-slate-800 p-6 rounded-xl border border-slate-700 overflow-y-auto max-h-[80vh]">
                     <h3 className="text-xl font-bold text-white mb-4">Mass Configuration</h3>
 
-                    {/* Engine Position */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-400 mb-2">
-                            Engine Position ({formatMass(cgResult.masses.engine.mass)} {unitSystem === 'metric' ? 'kg' : 'lbs'})
-                        </label>
-                        <input
-                            type="range"
-                            min="-2" max="5" step="0.1"
-                            value={reqs.enginePos || 0}
-                            onChange={(e) => updatePos('enginePos', parseFloat(e.target.value))}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>Fwd (-2m)</span>
-                            <span className="text-white font-mono">{formatLen(reqs.enginePos || 0)} {unitSystem === 'metric' ? 'm' : 'ft'}</span>
-                            <span>Aft (+5m)</span>
-                        </div>
+                    <MassControl
+                        label="Engine"
+                        massKey="engineMass" posKey="enginePos"
+                        color="#f59e0b"
+                        massVal={cgResult.masses.engine.mass}
+                        posVal={reqs.enginePos || 0}
+                    />
+
+                    <MassControl
+                        label="Fuel Tank"
+                        massKey="fuelMass" posKey="fuelPos"
+                        color="#ec4899"
+                        massVal={cgResult.masses.fuel.mass}
+                        posVal={reqs.fuelPos || 0}
+                    />
+
+                    <MassControl
+                        label="Structure"
+                        massKey="structureMass" posKey="structurePos"
+                        color="#64748b"
+                        massVal={cgResult.masses.structure.mass}
+                        posVal={reqs.structurePos || 0}
+                    />
+
+                    {/* Payload (Fixed Mass, Fixed Pos) */}
+                    <div className="p-4 bg-slate-900/50 rounded border border-slate-700/50 flex justify-between items-center text-sm text-slate-400">
+                        <span>Payload (Fixed at CG)</span>
+                        <span className="font-mono text-white">{formatMass(cgResult.masses.payload.mass)} {massUnit}</span>
                     </div>
 
-                    {/* Fuel Position */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-400 mb-2">
-                            Fuel Tank ({formatMass(cgResult.masses.fuel.mass)} {unitSystem === 'metric' ? 'kg' : 'lbs'})
-                        </label>
-                        <input
-                            type="range"
-                            min="-2" max="5" step="0.1"
-                            value={reqs.fuelPos || 0}
-                            onChange={(e) => updatePos('fuelPos', parseFloat(e.target.value))}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>Fwd</span>
-                            <span className="text-white font-mono">{formatLen(reqs.fuelPos || 0)}</span>
-                            <span>Aft</span>
-                        </div>
-                    </div>
-
-                    {/* Structure Position */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-400 mb-2">
-                            Structure/Fuselage ({formatMass(cgResult.masses.structure.mass)} {unitSystem === 'metric' ? 'kg' : 'lbs'})
-                        </label>
-                        <input
-                            type="range"
-                            min="-1" max="6" step="0.1"
-                            value={reqs.structurePos || 0}
-                            onChange={(e) => updatePos('structurePos', parseFloat(e.target.value))}
-                            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>Fwd</span>
-                            <span className="text-white font-mono">{formatLen(reqs.structurePos || 0)}</span>
-                            <span>Aft</span>
-                        </div>
-                    </div>
-
-                    {/* Payload (Fixed) */}
-                    <div className="p-3 bg-slate-900/50 rounded text-sm text-slate-400">
-                        Payload ({formatMass(cgResult.masses.payload.mass)}) is fixed at CG (0 m).
+                    <div className="mt-4 pt-4 border-t border-slate-700 flex justify-between items-center">
+                        <span className="font-bold text-slate-300">Total Mass (MTOW)</span>
+                        <span className="font-mono text-xl text-blue-400">{formatMass(cgResult.totalMass)} {massUnit}</span>
                     </div>
                 </div>
 
