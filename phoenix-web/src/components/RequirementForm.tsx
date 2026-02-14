@@ -228,14 +228,14 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                     name="tailDist"
                                     value={convertLength(data.tailDist, unitSystem).toFixed(2)}
                                     unit={config.lengthShort}
-                                    step={unitSystem === 'metric' ? 0.1 : 0.5}
+                                    step={unitSystem === 'metric' ? 0.01 : 0.5}
                                 />
                                 <InputField
                                     label={`Tail Area (${config.areaShort})`}
                                     name="tailArea"
                                     value={convertArea(data.tailArea, unitSystem).toFixed(2)}
                                     unit={config.areaShort}
-                                    step={unitSystem === 'metric' ? 0.1 : 1}
+                                    step={unitSystem === 'metric' ? 0.01 : 1}
                                 />
                                 <div className="col-span-2">
                                     <SelectField

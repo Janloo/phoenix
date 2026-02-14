@@ -5,11 +5,12 @@ import { DesignVisualizer } from './components/DesignVisualizer'
 import { Aerodynamics } from './components/Aerodynamics'
 import { Geometry } from './components/Geometry'
 import { Settings } from './components/Settings'
+import { FlightSimulator } from './components/FlightSimulator'
 import { calculateGeometry, calculateTailArea, calculateTailDist } from './utils/sizing'
 import type { UnitSystem } from './utils/units'
 
 function App() {
-  const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'geometry' | 'settings'>('sizing');
+  const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'geometry' | 'settings' | 'simulator'>('sizing');
 
   // Unit System State (with localStorage persistence)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => {
@@ -83,9 +84,11 @@ function App() {
       {/* Header */}
       <header className="bg-slate-800 border-b border-slate-700 p-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-            Phoenix <span className="text-slate-400 font-normal">| Aircraft Design Platform</span>
-          </h1>
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+              Phoenix <span className="text-slate-400 font-normal">| Aircraft Design Platform</span>
+            </h1>
+          </div>
           <nav>
             <ul className="flex space-x-6 text-sm font-medium text-slate-400">
               <li
@@ -105,6 +108,12 @@ function App() {
                 className={`cursor-pointer transition ${currentView === 'geometry' ? 'text-white border-b-2 border-blue-500' : 'hover:text-white'}`}
               >
                 Geometry
+              </li>
+              <li
+                onClick={() => setCurrentView('simulator')}
+                className={`cursor-pointer transition ${currentView === 'simulator' ? 'text-green-400 border-b-2 border-green-500' : 'text-green-400/70 hover:text-green-400'}`}
+              >
+                Flight Simulator 3D
               </li>
               <li
                 onClick={() => setCurrentView('settings')}
@@ -146,11 +155,26 @@ function App() {
 
         {currentView === 'geometry' && <Geometry reqs={designReqs} onChange={setDesignReqs} unitSystem={unitSystem} />}
 
+        {currentView === 'simulator' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-white">Flight Test Simulator</h2>
+              <p className="text-sm text-slate-400">Testing configuration: {designReqs.engineType} engine, {designReqs.airfoil} wing.</p>
+            </div>
+            <FlightSimulator
+              reqs={designReqs}
+              unitSystem={unitSystem}
+              onExit={() => setCurrentView('sizing')}
+            />
+          </div>
+        )}
+
         {currentView === 'settings' && <Settings unitSystem={unitSystem} onUnitSystemChange={setUnitSystem} />}
 
       </main>
     </div>
   )
 }
+
 
 export default App

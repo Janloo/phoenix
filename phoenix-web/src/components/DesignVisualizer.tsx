@@ -86,73 +86,150 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                     <rect width="100%" height="100%" fill="url(#grid)" />
 
                     <g transform={`translate(${canvasRefX}, ${canvasRefY})`}>
-                        {/* Fuselage */}
-                        {/* Centered at 0,0 for now, but visually shifted to look balanced */}
-                        <ellipse
-                            cx="0"
-                            cy={span * pxPerMeter * 0.15} // Shift fuselage back slightly so nose is ahead of wing
-                            rx={span * pxPerMeter * 0.1} // Width
-                            ry={span * pxPerMeter * 0.7} // Length
-                            fill="#334155"
-                            stroke="#94a3b8"
-                        />
-                        {/* Nose Cone Marker (Green) */}
-                        <circle cx="0" cy={-(span * pxPerMeter * 0.7) + (span * pxPerMeter * 0.15)} r="3" fill="#10b981" opacity="0.5" />
-
-                        {/* Wing */}
-                        {/* Positioned so Quarter-Chord (Aerodynamic Center) is at (0,0) (The CG location) */}
-                        {/* Top Left Y = -0.25 * Chord */}
-                        <rect
-                            x={-(span * pxPerMeter) / 2}
-                            y={-(chord * pxPerMeter) * 0.25}
-                            width={span * pxPerMeter}
-                            height={chord * pxPerMeter}
-                            fill="#3b82f6"
-                            fillOpacity="0.8"
-                            stroke="#60a5fa"
-                            rx="4"
-                        />
-
-                        {/* Horizontal Stabilizer (User Configured) */}
-                        {/* Drawn at distance tailDist from Wing AC (approx CG) */}
-                        {/* Scale: 1 unit = 1 meter */}
                         {(() => {
-                            // Tail Geometry
-                            // S = b_t * c_t. AR_t ~ 4
-                            // b_t = sqrt(S * 4)
+                            // --- Geometry Calculations ---
+                            // Wing
+                            const wingMAC = chord; // approx
+                            const wingRoot = (2 * wingMAC) / (1 + (reqs.wingTaperRatio || 1));
+                            const wingTip = wingRoot * (reqs.wingTaperRatio || 1);
+                            const wingSweepRad = (reqs.wingSweep || 0) * Math.PI / 180;
+                            const wingSweepOffset = Math.tan(wingSweepRad) * (span / 2);
+
+                            // Tail
                             const tailAR = 4;
                             const tailSpan = Math.sqrt(reqs.tailArea * tailAR);
                             const tailChord = reqs.tailArea / tailSpan;
+                            const tailDist = reqs.tailDist;
 
-                            // Position
-                            // Origin (0,0) is Wing AC / CG location
-                            // So tail leading edge starts around tailDist
-                            // Let's center the tail chord at tailDist for simplicity
-                            const tailY = (reqs.tailDist * pxPerMeter) - (tailChord * pxPerMeter * 0.25);
+                            const tailRoot = (2 * tailChord) / (1 + (reqs.tailTaperRatio || 0.7)); // Default if missing
+                            const tailTip = tailRoot * (reqs.tailTaperRatio || 0.7);
+                            const tailSweepRad = (reqs.tailSweep || 0) * Math.PI / 180;
+                            const tailSweepOffset = Math.tan(tailSweepRad) * (tailSpan / 2);
+
+                            // Fuselage
+                            // Length should cover nose to tail.
+                            // Nose ~ 0.2 * span? Or just fixed margin ahead of wing.
+                            const noseLength = wingRoot * 0.8;
+                            const fuseLength = noseLength + tailDist + tailRoot;
+                            const fuseWidth = wingRoot * 0.6; // Heuristic
+
+                            // SVG Coordinates (Y is Forward/Nose in some conventions, but here SVG Y is Down)
+                            // Let's keep: Nose = Negative Y (Up), Tail = Positive Y (Down)
+                            // Wing AC/CG at (0,0)
 
                             return (
-                                <g>
-                                    <rect
-                                        x={-(tailSpan * pxPerMeter) / 2}
-                                        y={tailY}
-                                        width={tailSpan * pxPerMeter}
-                                        height={tailChord * pxPerMeter}
-                                        fill="#475569"
-                                        stroke="#94a3b8"
-                                        rx="2"
-                                    />
-                                    {/* Tail Fuse Connection (Boom) */}
+                                <>
+                                    {/* Fuselage */}
+                                    {/* Centered logic: Nose is at -noseLength, Tail end at +tailDist + tail... */}
                                     <path
-                                        d={`M -${span * pxPerMeter * 0.05} ${chord * pxPerMeter * 0.75} L -${tailSpan * pxPerMeter * 0.08} ${tailY} L ${tailSpan * pxPerMeter * 0.08} ${tailY} L ${span * pxPerMeter * 0.05} ${chord * pxPerMeter * 0.75}`}
+                                        d={`
+                                            M 0 ${-noseLength} 
+                                            Q ${fuseWidth / 2 * pxPerMeter} ${-noseLength * 0.5 * pxPerMeter} ${fuseWidth / 2 * pxPerMeter} 0 
+                                            L ${fuseWidth / 3 * pxPerMeter} ${(tailDist) * pxPerMeter}
+                                            L ${-fuseWidth / 3 * pxPerMeter} ${(tailDist) * pxPerMeter}
+                                            L ${-fuseWidth / 2 * pxPerMeter} 0 
+                                            Q ${-fuseWidth / 2 * pxPerMeter} ${-noseLength * 0.5 * pxPerMeter} 0 ${-noseLength * pxPerMeter}
+                                        `}
+                                        fill="#334155"
+                                        stroke="#94a3b8"
+                                        strokeWidth="1"
+                                    />
+                                    <ellipse
+                                        cx="0"
+                                        cy={0} // Centered at wing
+                                        rx={fuseWidth / 2 * pxPerMeter}
+                                        ry={noseLength * 0.8 * pxPerMeter} // Just a main body mock
                                         fill="#334155"
                                         opacity="0.5"
                                     />
-                                    <text x="0" y={tailY + (tailChord * pxPerMeter) + 15} textAnchor="middle" fontSize="10" fill="#64748b">
-                                        Tail ({reqs.tailAirfoil})
-                                    </text>
-                                </g>
+
+
+                                    {/* Wing (Polygon) */}
+                                    {/* Points: p1(TipL), p2(RootL), p3(RootR), p4(TipR) */}
+                                    {/* Left Tip computed: x = -span/2, y_le = sweepOffset */}
+                                    {(() => {
+                                        const wScale = pxPerMeter;
+                                        // Left Side (x < 0)
+                                        const xTipL = -span / 2 * wScale;
+                                        const yLeTipL = (wingSweepOffset - wingTip / 2) * wScale; // Leading edge relative correction?
+                                        // Wait, standard sweep is usually LE. 
+                                        // Let's assume Quarter Chord Sweep is what matters, but for drawing let's stick to LE sweep if simple.
+                                        // Actually simplest is: Root LE is at -wingRoot/4 (AC assumed at 0.25c)
+                                        const yLeRoot = -(wingRoot * 0.25) * wScale;
+
+                                        // Tip LE is shifted back by tan(sweep)*span/2
+                                        const yLeTip = yLeRoot + (Math.tan(wingSweepRad) * (span / 2) * wScale);
+
+                                        // Points
+                                        const p1 = `${xTipL},${yLeTip}`; // Tip LE Left
+                                        const p2 = `${xTipL},${yLeTip + (wingTip * wScale)}`; // Tip TE Left
+                                        const p3 = `0,${yLeRoot + (wingRoot * wScale)}`; // Root TE (Center)
+                                        const p4 = `0,${yLeRoot}`; // Root LE (Center) NOTE: Half wing drawn? No full.
+
+                                        const pRootLE = [0, yLeRoot];
+                                        const pRootTE = [0, yLeRoot + wingRoot * wScale];
+                                        const pTipL_LE = [-span / 2 * wScale, yLeTip];
+                                        const pTipL_TE = [-span / 2 * wScale, yLeTip + wingTip * wScale];
+                                        const pTipR_LE = [span / 2 * wScale, yLeTip];
+                                        const pTipR_TE = [span / 2 * wScale, yLeTip + wingTip * wScale];
+
+                                        const polyPoints = [
+                                            pTipL_LE, pTipL_TE, pRootTE, pTipR_TE, pTipR_LE, pRootLE
+                                        ].map(p => p.join(',')).join(' ');
+
+                                        return (
+                                            <polygon
+                                                points={polyPoints}
+                                                fill="#3b82f6"
+                                                fillOpacity="0.8"
+                                                stroke="#60a5fa"
+                                            />
+                                        );
+                                    })()}
+
+                                    {/* Horizontal Stabilizer */}
+                                    {(() => {
+                                        const tScale = pxPerMeter;
+                                        // Tail AC usually at tailDist. 
+                                        // Let's approximate Tail LE
+                                        const tRoot = tailRoot;
+                                        const tTip = tailTip;
+                                        const tSpan = tailSpan;
+                                        // Local coordinates relative to tailDist
+                                        const yBase = tailDist * tScale;
+                                        const yLeRoot = yBase - (tRoot * 0.25 * tScale);
+                                        const yLeTip = yLeRoot + (Math.tan(tailSweepRad) * (tSpan / 2) * tScale);
+
+                                        const pRootLE = [0, yLeRoot];
+                                        const pRootTE = [0, yLeRoot + tRoot * tScale];
+                                        const pTipL_LE = [-tSpan / 2 * tScale, yLeTip];
+                                        const pTipL_TE = [-tSpan / 2 * tScale, yLeTip + tTip * tScale];
+                                        const pTipR_LE = [tSpan / 2 * tScale, yLeTip];
+                                        const pTipR_TE = [tSpan / 2 * tScale, yLeTip + tTip * tScale];
+
+                                        const tailPoints = [
+                                            pTipL_LE, pTipL_TE, pRootTE, pTipR_TE, pTipR_LE, pRootLE
+                                        ].map(p => p.join(',')).join(' ');
+
+                                        return (
+                                            <g>
+                                                <polygon
+                                                    points={tailPoints}
+                                                    fill="#475569"
+                                                    stroke="#94a3b8"
+                                                />
+                                                <text x="0" y={yBase + (tRoot * tScale) + 15} textAnchor="middle" fontSize="10" fill="#64748b">
+                                                    Tail ({reqs.tailAirfoil})
+                                                </text>
+                                            </g>
+                                        );
+                                    })()}
+                                </>
                             );
                         })()}
+
+                        {/* Nose Cone Marker (Green) */}
+                        <circle cx="0" cy={-(span * pxPerMeter * 0.4)} r="3" fill="#10b981" opacity="0.5" />
 
                         {/* CG Symbol */}
                         <g transform="translate(0, 0)">
@@ -169,38 +246,21 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                             // Propeller Arc
                             <g>
                                 <path
-                                    d={`M -${span * pxPerMeter * 0.25} -${span * pxPerMeter * 0.55} Q 0 -${span * pxPerMeter * 0.65} ${span * pxPerMeter * 0.25} -${span * pxPerMeter * 0.55}`}
+                                    d={`M -${span * pxPerMeter * 0.25} -${span * pxPerMeter * 0.45} Q 0 -${span * pxPerMeter * 0.55} ${span * pxPerMeter * 0.25} -${span * pxPerMeter * 0.45}`}
                                     stroke="#cbd5e1"
                                     strokeWidth="2"
                                     fill="none"
                                     strokeDasharray="4 2"
                                     opacity="0.6"
                                 />
-                                <circle cx="0" cy={-(span * pxPerMeter * 0.55)} r="3" fill="#cbd5e1" />
+                                <circle cx="0" cy={-(span * pxPerMeter * 0.45)} r="3" fill="#cbd5e1" />
                             </g>
                         ) : (
-                            // Jet Nacelles (Under Wing)
+                            // Jet Nacelles
                             <g>
-                                <rect
-                                    x={-(span * pxPerMeter * 0.15)}
-                                    y={-(chord * pxPerMeter) * 0.25 + (chord * pxPerMeter * 0.5)}
-                                    width={span * pxPerMeter * 0.08}
-                                    height={span * pxPerMeter * 0.15}
-                                    rx="5"
-                                    fill="#475569"
-                                    stroke="#94a3b8"
-                                />
-                                <rect
-                                    x={(span * pxPerMeter * 0.15) - (span * pxPerMeter * 0.08)}
-                                    y={-(chord * pxPerMeter) * 0.25 + (chord * pxPerMeter * 0.5)}
-                                    width={span * pxPerMeter * 0.08}
-                                    height={span * pxPerMeter * 0.15}
-                                    rx="5"
-                                    fill="#475569"
-                                    stroke="#94a3b8"
-                                />
+                                {/* Simple Nacelles */}
                             </g>
-                        )};
+                        )}
                     </g>
                 </svg>
 
