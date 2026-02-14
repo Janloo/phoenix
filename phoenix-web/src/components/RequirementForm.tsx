@@ -161,7 +161,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             name="range"
                             value={convertDistance(data.range, unitSystem).toFixed(1)}
                             unit={config.distanceShort}
-                            step={unitSystem === 'metric' ? 50 : 10}
+                            step={unitSystem === 'metric' ? 10 : 10}
                         />
                         <InputField
                             label={`Cruise Altitude (${config.altitudeShort})`}
@@ -228,14 +228,14 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                     name="tailDist"
                                     value={convertLength(data.tailDist, unitSystem).toFixed(2)}
                                     unit={config.lengthShort}
-                                    step={unitSystem === 'metric' ? 0.01 : 0.5}
+                                    step={unitSystem === 'metric' ? 0.01 : 0.01}
                                 />
                                 <InputField
                                     label={`Tail Area (${config.areaShort})`}
                                     name="tailArea"
                                     value={convertArea(data.tailArea, unitSystem).toFixed(2)}
                                     unit={config.areaShort}
-                                    step={unitSystem === 'metric' ? 0.01 : 1}
+                                    step={unitSystem === 'metric' ? 0.01 : 0.01}
                                 />
                                 <div className="col-span-2">
                                     <SelectField

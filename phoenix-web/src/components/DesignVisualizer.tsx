@@ -93,7 +93,6 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                             const wingRoot = (2 * wingMAC) / (1 + (reqs.wingTaperRatio || 1));
                             const wingTip = wingRoot * (reqs.wingTaperRatio || 1);
                             const wingSweepRad = (reqs.wingSweep || 0) * Math.PI / 180;
-                            const wingSweepOffset = Math.tan(wingSweepRad) * (span / 2);
 
                             // Tail
                             const tailAR = 4;
@@ -104,13 +103,11 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                             const tailRoot = (2 * tailChord) / (1 + (reqs.tailTaperRatio || 0.7)); // Default if missing
                             const tailTip = tailRoot * (reqs.tailTaperRatio || 0.7);
                             const tailSweepRad = (reqs.tailSweep || 0) * Math.PI / 180;
-                            const tailSweepOffset = Math.tan(tailSweepRad) * (tailSpan / 2);
 
                             // Fuselage
                             // Length should cover nose to tail.
                             // Nose ~ 0.2 * span? Or just fixed margin ahead of wing.
                             const noseLength = wingRoot * 0.8;
-                            const fuseLength = noseLength + tailDist + tailRoot;
                             const fuseWidth = wingRoot * 0.6; // Heuristic
 
                             // SVG Coordinates (Y is Forward/Nose in some conventions, but here SVG Y is Down)
@@ -123,7 +120,7 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                                     {/* Centered logic: Nose is at -noseLength, Tail end at +tailDist + tail... */}
                                     <path
                                         d={`
-                                            M 0 ${-noseLength} 
+                                            M 0 ${-noseLength * pxPerMeter} 
                                             Q ${fuseWidth / 2 * pxPerMeter} ${-noseLength * 0.5 * pxPerMeter} ${fuseWidth / 2 * pxPerMeter} 0 
                                             L ${fuseWidth / 3 * pxPerMeter} ${(tailDist) * pxPerMeter}
                                             L ${-fuseWidth / 3 * pxPerMeter} ${(tailDist) * pxPerMeter}
@@ -150,8 +147,7 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                                     {(() => {
                                         const wScale = pxPerMeter;
                                         // Left Side (x < 0)
-                                        const xTipL = -span / 2 * wScale;
-                                        const yLeTipL = (wingSweepOffset - wingTip / 2) * wScale; // Leading edge relative correction?
+
                                         // Wait, standard sweep is usually LE. 
                                         // Let's assume Quarter Chord Sweep is what matters, but for drawing let's stick to LE sweep if simple.
                                         // Actually simplest is: Root LE is at -wingRoot/4 (AC assumed at 0.25c)
@@ -161,11 +157,6 @@ export const DesignVisualizer: React.FC<Props> = ({ reqs, unitSystem }) => {
                                         const yLeTip = yLeRoot + (Math.tan(wingSweepRad) * (span / 2) * wScale);
 
                                         // Points
-                                        const p1 = `${xTipL},${yLeTip}`; // Tip LE Left
-                                        const p2 = `${xTipL},${yLeTip + (wingTip * wScale)}`; // Tip TE Left
-                                        const p3 = `0,${yLeRoot + (wingRoot * wScale)}`; // Root TE (Center)
-                                        const p4 = `0,${yLeRoot}`; // Root LE (Center) NOTE: Half wing drawn? No full.
-
                                         const pRootLE = [0, yLeRoot];
                                         const pRootTE = [0, yLeRoot + wingRoot * wScale];
                                         const pTipL_LE = [-span / 2 * wScale, yLeTip];
