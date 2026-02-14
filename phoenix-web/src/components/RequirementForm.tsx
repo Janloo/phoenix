@@ -17,6 +17,10 @@ interface Requirements {
     wingSweep: number;       // Sweep angle in degrees (0 - 30)
     tailTaperRatio: number;  // Tip chord / Root chord (0.3 - 1.0)
     tailSweep: number;       // Sweep angle in degrees (0 - 30)
+    // Mass & Balance (Positions from Wing LE/Quarter Chord, +Aft)
+    enginePos: number;
+    fuelPos: number;
+    structurePos: number;
 }
 
 interface Props {

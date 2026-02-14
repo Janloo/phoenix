@@ -6,11 +6,12 @@ import { Aerodynamics } from './components/Aerodynamics'
 import { Geometry } from './components/Geometry'
 import { Settings } from './components/Settings'
 import { FlightSimulator } from './components/FlightSimulator'
+import { MassDistribution } from './components/MassDistribution'
 import { calculateGeometry, calculateTailArea, calculateTailDist } from './utils/sizing'
 import type { UnitSystem } from './utils/units'
 
 function App() {
-  const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'geometry' | 'settings' | 'simulator'>('sizing');
+  const [currentView, setCurrentView] = useState<'sizing' | 'aero' | 'geometry' | 'settings' | 'simulator' | 'weights'>('sizing');
 
   // Unit System State (with localStorage persistence)
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(() => {
@@ -32,7 +33,11 @@ function App() {
     wingTaperRatio: 0.6,
     wingSweep: 0,
     tailTaperRatio: 0.7,
-    tailSweep: 0
+    tailSweep: 0,
+    // Mass & Balance Defaults
+    enginePos: -0.5, // Ahead of wing
+    fuelPos: 0,      // Near CG
+    structurePos: 1.0 // Behind wing (Tail boom etc)
   });
 
   // Save unit system preference
@@ -116,6 +121,12 @@ function App() {
                 Flight Simulator 3D
               </li>
               <li
+                onClick={() => setCurrentView('weights')}
+                className={`cursor-pointer transition ${currentView === 'weights' ? 'text-white border-b-2 border-blue-500' : 'hover:text-white'}`}
+              >
+                Weight & Balance
+              </li>
+              <li
                 onClick={() => setCurrentView('settings')}
                 className={`cursor-pointer transition ${currentView === 'settings' ? 'text-white border-b-2 border-blue-500' : 'hover:text-white'}`}
               >
@@ -169,12 +180,22 @@ function App() {
           </div>
         )}
 
+        {currentView === 'weights' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-3xl font-extrabold text-white">Weight & Balance</h2>
+              <p className="text-slate-400 text-lg leading-relaxed">
+                Adjust component placement to ensure aircraft stability.
+              </p>
+            </div>
+            <MassDistribution reqs={designReqs} onChange={setDesignReqs} unitSystem={unitSystem} />
+          </div>
+        )}
+
         {currentView === 'settings' && <Settings unitSystem={unitSystem} onUnitSystemChange={setUnitSystem} />}
 
       </main>
     </div>
   )
 }
-
-
 export default App
