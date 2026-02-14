@@ -300,8 +300,15 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
 
                 <SimulationScene reqs={reqs} setTelemetry={setTelemetry} />
 
-                <Grid infiniteGrid fadeDistance={500} sectionColor="#4f4f4f" cellColor="#2f2f2f" />
-                <Plane args={[1000, 1000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+                <Grid
+                    infiniteGrid
+                    fadeDistance={25000}
+                    sectionColor="#666666"
+                    cellColor="#333333"
+                    sectionSize={250}
+                    cellSize={50}
+                />
+                <Plane args={[100000, 100000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
                     <meshStandardMaterial color="#1a2e1a" />
                 </Plane>
             </Canvas>
