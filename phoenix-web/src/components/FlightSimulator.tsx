@@ -111,7 +111,13 @@ const SimulationScene: React.FC<{
     const throttle = useRef(0); // 0 to 100%
 
     // Aircraft Params
-    const { mtow, wingArea } = useMemo(() => calculateGeometry(reqs), [reqs]);
+    const { mtow, wingArea } = useMemo(() => {
+        const geom = calculateGeometry(reqs);
+        return {
+            mtow: Math.max(geom.mtow, 100), // Min 100kg
+            wingArea: Math.max(geom.wingArea, 1) // Min 1m^2
+        };
+    }, [reqs]);
     const maxThrust = (mtow * 9.81) * 0.5; // T/W ~ 0.5 for generic GA
 
     useEffect(() => {
@@ -129,6 +135,7 @@ const SimulationScene: React.FC<{
     const controls = useRef({ elevator: 0, aileron: 0, rudder: 0 });
 
     useFrame((_state, delta) => {
+        const dt = Math.min(delta, 0.1); // Clamp delta to avoid instability
         // 1. Process Input & Smooth Control Surfaces
         // Targets
         let targetElevator = 0;
@@ -144,13 +151,13 @@ const SimulationScene: React.FC<{
         if (keys.current['KeyE']) targetRudder = -1; // Yaw Right
 
         // Smoothing (actuator speed)
-        const controlSpeed = 5 * delta;
+        const controlSpeed = 5 * dt;
         controls.current.elevator += (targetElevator - controls.current.elevator) * controlSpeed;
         controls.current.aileron += (targetAileron - controls.current.aileron) * controlSpeed;
         controls.current.rudder += (targetRudder - controls.current.rudder) * controlSpeed;
 
-        if (keys.current['KeyW']) throttle.current = Math.min(1, throttle.current + 0.5 * delta);
-        if (keys.current['KeyS']) throttle.current = Math.max(0, throttle.current - 0.5 * delta);
+        if (keys.current['KeyW']) throttle.current = Math.min(1, throttle.current + 0.5 * dt);
+        if (keys.current['KeyS']) throttle.current = Math.max(0, throttle.current - 0.5 * dt);
 
         // Apply Control Inputs to Physics
         // Control Authority scales with dynamic pressure (speed^2), approx.
@@ -158,9 +165,9 @@ const SimulationScene: React.FC<{
         // Using smoothstep logic or simple ratio:
         const controlAuthority = Math.min((velocity.current.lengthSq() / 400), 2.0);
 
-        euler.current.x += controls.current.elevator * 2 * controlAuthority * delta;
-        euler.current.z -= controls.current.aileron * 2 * controlAuthority * delta; // Roll follows aileron
-        euler.current.y += controls.current.rudder * 1 * controlAuthority * delta;
+        euler.current.x += controls.current.elevator * 2 * controlAuthority * dt;
+        euler.current.z -= controls.current.aileron * 2 * controlAuthority * dt; // Roll follows aileron
+        euler.current.y += controls.current.rudder * 1 * controlAuthority * dt;
 
         // Clamp Pitch/Roll slightly to avoid easy flipping in this simple model
         euler.current.z *= 0.99; // Auto-level roll
@@ -184,8 +191,13 @@ const SimulationScene: React.FC<{
         // Drag
         const cd = 0.04 + (cl * cl * 0.05);
         const dragMag = 0.5 * AIR_DENSITY * speedSq * wingArea * cd;
-        const drag = velocity.current.clone().normalize().multiplyScalar(-dragMag);
-        if (speed < 0.1) drag.set(0, 0, 0);
+        let drag = new THREE.Vector3(0, 0, 0);
+        if (speed > 0.001) {
+            const dragDir = velocity.current.clone().normalize();
+            if (!Number.isNaN(dragDir.x)) {
+                drag = dragDir.multiplyScalar(-dragMag);
+            }
+        }
 
         // Thrust
         const thrust = forward.clone().multiplyScalar(maxThrust * throttle.current);
@@ -193,22 +205,40 @@ const SimulationScene: React.FC<{
         // Gravity
         const gravity = new THREE.Vector3(0, -GRAVITY * mtow, 0);
 
+        // Ground Physics (Rolling Resistance)
+        const isOnGround = position.current.y <= 0.05;
+        let rollingResistance = new THREE.Vector3(0, 0, 0);
+        if (isOnGround) {
+            const liftY = lift.y; // Assuming up is (0,1,0) roughly
+            const weight = mtow * GRAVITY;
+            const normalForce = Math.max(0, weight - liftY);
+            const frictionCoeff = 0.02; // Tarmac
+            const speedVal = velocity.current.length();
+            if (speedVal > 0.1) {
+                const vec = velocity.current.clone().normalize();
+                if (vec.lengthSq() > 0) {
+                    rollingResistance = vec.multiplyScalar(-normalForce * frictionCoeff);
+                }
+            } else if (throttle.current <= 0.01) {
+                // Stop if very slow AND no significant throttle
+                velocity.current.set(0, 0, 0);
+            }
+        }
+
         // Total Force
-        const totalForce = new THREE.Vector3().add(thrust).add(drag).add(lift).add(gravity);
+        const totalForce = new THREE.Vector3().add(thrust).add(drag).add(lift).add(gravity).add(rollingResistance);
 
         // Acceleration (F=ma)
         const accel = totalForce.divideScalar(mtow);
 
         // Integration
-        velocity.current.add(accel.multiplyScalar(delta));
-        position.current.add(velocity.current.clone().multiplyScalar(delta));
+        velocity.current.add(accel.multiplyScalar(dt));
+        position.current.add(velocity.current.clone().multiplyScalar(dt));
 
         // Ground Collision
         if (position.current.y < 0) {
             position.current.y = 0;
             velocity.current.y = Math.max(0, velocity.current.y);
-            // Friction
-            velocity.current.multiplyScalar(0.99); // Rolling resistance
         }
 
         // Update Orientation
