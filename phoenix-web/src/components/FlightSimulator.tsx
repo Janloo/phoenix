@@ -62,11 +62,21 @@ const Aircraft: React.FC<{ reqs: Requirements; pitch: number; roll: number; yaw:
 // --- Camera Controller ---
 const ChaseCamera = ({ position, quaternion }: { position: THREE.Vector3, quaternion: THREE.Quaternion }) => {
     const { camera } = useThree();
-    const offset = new THREE.Vector3(0, 5, 15); // Behind and above
+    const offsetDistance = 15;
+    const offsetHeight = 5;
 
     useFrame(() => {
-        // Calculate ideal camera position
-        const targetPos = position.clone().add(offset.clone().applyQuaternion(quaternion));
+        // Calculate stable "behind" position
+        // 1. Get actual forward vector of aircraft
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion);
+        // 2. Flatten to horizontal plane (XZ) to keep camera level
+        forward.y = 0;
+        forward.normalize();
+
+        // 3. Target position: Plane Pos - (Forward * Distance) + (Up * Height)
+        const targetPos = position.clone()
+            .sub(forward.multiplyScalar(offsetDistance))
+            .add(new THREE.Vector3(0, offsetHeight, 0));
 
         // Smoothly interpolate camera position
         camera.position.lerp(targetPos, 0.1);
@@ -76,7 +86,20 @@ const ChaseCamera = ({ position, quaternion }: { position: THREE.Vector3, quater
 };
 
 // --- Main Simulation Scene ---
-const SimulationScene: React.FC<{ reqs: Requirements; setTelemetry: (t: any) => void }> = ({ reqs, setTelemetry }) => {
+const SimulationScene: React.FC<{
+    reqs: Requirements;
+    setTelemetry: (t: {
+        altitude: number;
+        speed: number;
+        throttle: number;
+        heading: number;
+        pitch: number;
+        roll: number;
+        elevator: number;
+        aileron: number;
+        rudder: number;
+    }) => void
+}> = ({ reqs, setTelemetry }) => {
     // Physics State
     const position = useRef(new THREE.Vector3(0, 0, 0)); // Start on ground
     const velocity = useRef(new THREE.Vector3(0, 0, 0)); // Start stationary
@@ -102,17 +125,42 @@ const SimulationScene: React.FC<{ reqs: Requirements; setTelemetry: (t: any) => 
         };
     }, []);
 
+    // Control Surfaces State (Smoothed)
+    const controls = useRef({ elevator: 0, aileron: 0, rudder: 0 });
+
     useFrame((_state, delta) => {
-        // 1. Process Input
-        if (keys.current['ArrowUp']) euler.current.x -= 2 * delta; // Pitch Down
-        if (keys.current['ArrowDown']) euler.current.x += 2 * delta; // Pitch Up
-        if (keys.current['ArrowLeft']) euler.current.z += 2 * delta; // Roll Left
-        if (keys.current['ArrowRight']) euler.current.z -= 2 * delta; // Roll Right
-        if (keys.current['KeyQ']) euler.current.y += 1 * delta; // Yaw Left
-        if (keys.current['KeyE']) euler.current.y -= 1 * delta; // Yaw Right
+        // 1. Process Input & Smooth Control Surfaces
+        // Targets
+        let targetElevator = 0;
+        if (keys.current['ArrowUp']) targetElevator = -1; // Pitch Down
+        if (keys.current['ArrowDown']) targetElevator = 1; // Pitch Up
+
+        let targetAileron = 0;
+        if (keys.current['ArrowLeft']) targetAileron = -1; // Roll Left
+        if (keys.current['ArrowRight']) targetAileron = 1; // Roll Right
+
+        let targetRudder = 0;
+        if (keys.current['KeyQ']) targetRudder = 1; // Yaw Left
+        if (keys.current['KeyE']) targetRudder = -1; // Yaw Right
+
+        // Smoothing (actuator speed)
+        const controlSpeed = 5 * delta;
+        controls.current.elevator += (targetElevator - controls.current.elevator) * controlSpeed;
+        controls.current.aileron += (targetAileron - controls.current.aileron) * controlSpeed;
+        controls.current.rudder += (targetRudder - controls.current.rudder) * controlSpeed;
 
         if (keys.current['KeyW']) throttle.current = Math.min(1, throttle.current + 0.5 * delta);
         if (keys.current['KeyS']) throttle.current = Math.max(0, throttle.current - 0.5 * delta);
+
+        // Apply Control Inputs to Physics
+        // Control Authority scales with dynamic pressure (speed^2), approx.
+        // At 0 speed -> 0 authority. At ~20m/s -> 1.0. Max 2.0.
+        // Using smoothstep logic or simple ratio:
+        const controlAuthority = Math.min((velocity.current.lengthSq() / 400), 2.0);
+
+        euler.current.x += controls.current.elevator * 2 * controlAuthority * delta;
+        euler.current.z -= controls.current.aileron * 2 * controlAuthority * delta; // Roll follows aileron
+        euler.current.y += controls.current.rudder * 1 * controlAuthority * delta;
 
         // Clamp Pitch/Roll slightly to avoid easy flipping in this simple model
         euler.current.z *= 0.99; // Auto-level roll
@@ -174,6 +222,9 @@ const SimulationScene: React.FC<{ reqs: Requirements; setTelemetry: (t: any) => 
             heading: (euler.current.y * 180 / Math.PI) % 360,
             pitch: (euler.current.x * 180 / Math.PI),
             roll: (euler.current.z * 180 / Math.PI),
+            elevator: controls.current.elevator,
+            aileron: controls.current.aileron,
+            rudder: controls.current.rudder
         });
     });
 
@@ -187,13 +238,26 @@ const SimulationScene: React.FC<{ reqs: Requirements; setTelemetry: (t: any) => 
 
 
 export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) => {
-    const [telemetry, setTelemetry] = useState({
+    const [telemetry, setTelemetry] = useState<{
+        altitude: number;
+        speed: number;
+        throttle: number;
+        heading: number;
+        pitch: number;
+        roll: number;
+        elevator: number;
+        aileron: number;
+        rudder: number;
+    }>({
         altitude: 0,
         speed: 0,
         throttle: 0,
         heading: 0,
         pitch: 0,
-        roll: 0
+        roll: 0,
+        elevator: 0,
+        aileron: 0,
+        rudder: 0
     });
 
     return (
@@ -250,7 +314,58 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                 </div>
 
                 {/* Controls Hint */}
-                <div className="text-center text-slate-500 text-xs font-mono">
+                <div className="absolute bottom-6 left-6 text-slate-400 font-mono text-xs space-y-2">
+                    <div className="bg-black/50 p-3 rounded backdrop-blur-sm">
+                        <div className="font-bold text-slate-300 mb-1">CONTROLS INPUT</div>
+                        {/* Elevator */}
+                        <div className="flex items-center gap-2">
+                            <span className="w-12">ELEV</span>
+                            <div className="w-24 h-2 bg-slate-700 rounded overflow-hidden relative">
+                                <div
+                                    className="absolute top-0 h-full bg-blue-500 transition-all duration-75"
+                                    style={{
+                                        left: '50%',
+                                        width: `${Math.abs(telemetry.elevator) * 50}%`,
+                                        transform: `translateX(${telemetry.elevator < 0 ? '-100%' : '0'})`
+                                    }}
+                                />
+                            </div>
+                            <span className="w-8 text-right">{(telemetry.elevator * 100).toFixed(0)}%</span>
+                        </div>
+                        {/* Aileron */}
+                        <div className="flex items-center gap-2">
+                            <span className="w-12">AIL</span>
+                            <div className="w-24 h-2 bg-slate-700 rounded overflow-hidden relative">
+                                <div
+                                    className="absolute top-0 h-full bg-blue-500 transition-all duration-75"
+                                    style={{
+                                        left: '50%',
+                                        width: `${Math.abs(telemetry.aileron) * 50}%`,
+                                        transform: `translateX(${telemetry.aileron < 0 ? '-100%' : '0'})`
+                                    }}
+                                />
+                            </div>
+                            <span className="w-8 text-right">{(telemetry.aileron * 100).toFixed(0)}%</span>
+                        </div>
+                        {/* Rudder */}
+                        <div className="flex items-center gap-2">
+                            <span className="w-12">RUD</span>
+                            <div className="w-24 h-2 bg-slate-700 rounded overflow-hidden relative">
+                                <div
+                                    className="absolute top-0 h-full bg-blue-500 transition-all duration-75"
+                                    style={{
+                                        left: '50%',
+                                        width: `${Math.abs(telemetry.rudder) * 50}%`,
+                                        transform: `translateX(${telemetry.rudder < 0 ? '-100%' : '0'})`
+                                    }}
+                                />
+                            </div>
+                            <span className="w-8 text-right">{(telemetry.rudder * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="text-center text-slate-500 text-xs font-mono pb-2">
                     CONTROLS: W/S (Throttle) | ARROWS (Pitch/Roll) | Q/E (Yaw)
                 </div>
             </div>
