@@ -14,12 +14,37 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
     const geom = calculateGeometry(reqs);
     const cgResult = calculateCG(reqs, geom);
 
-    // 2. Visual Scales
-    const pxPerMeter = 40; // Scale for visualization
+    // 2. Dynamic Scaler (Bounding Box)
+    const elementsX = [
+        0, // Wing LE (Datum)
+        geom.chord, // Wing TE
+        reqs.tailDist, // Tail location
+        reqs.tailDist + (geom.chord * 0.6), // Tail TE
+        reqs.enginePos || 0,
+        reqs.fuelPos || 0,
+        reqs.structurePos || 0,
+        cgResult.cgLocation,
+        cgResult.neutralPoint,
+        -geom.span / 5 // Nose roughly
+    ];
+
+    const minX = Math.min(...elementsX); // Fwd most point (usually negative, e.g. Nose or Engine)
+    const maxX = Math.max(...elementsX); // Aft most point (usually Tail TE)
+
+    // Add 10% padding to the bounding box
+    const totalLength = (maxX - minX) * 1.2;
+    // Guard against 0 logic if something goes wrong
+    const safeLength = totalLength > 0 ? totalLength : 10;
+
     const width = 800;
     const height = 400;
+
+    // Dynamic pxPerMeter based on available canvas width
+    const pxPerMeter = width / safeLength;
+
     const centerY = height / 2;
-    const centerX = width / 3; // Wing LE at this X
+    // Set CenterX so that minX structurally maps to 10% of width (padding)
+    const centerX = -minX * pxPerMeter + (width * 0.1);
 
     // Helper to converting geometric X to SVG X
     // Geometric X: 0 = Wing LE. +X = Aft (Right), -X = Fwd (Left).
