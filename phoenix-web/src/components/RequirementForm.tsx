@@ -1,9 +1,8 @@
 import React from 'react';
 import type { UnitSystem } from '../utils/units';
-import { convertDistance, convertSpeed, convertAltitude, convertMass, convertArea, convertLength, reverseConvertDistance, reverseConvertSpeed, reverseConvertAltitude, reverseConvertMass, reverseConvertArea, reverseConvertLength, UNIT_CONFIGS } from '../utils/units';
+import { convertSpeed, convertAltitude, convertMass, convertArea, convertLength, reverseConvertSpeed, reverseConvertAltitude, reverseConvertMass, reverseConvertArea, reverseConvertLength, UNIT_CONFIGS } from '../utils/units';
 
 interface Requirements {
-    range: number;      // Always stored in metric (km)
     altitude: number;   // Always stored in metric (m)
     payload: number;    // Always stored in metric (kg)
     speed: number;      // Always stored in metric (m/s)
@@ -42,8 +41,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
         // For non-string fields, convert from display units back to metric for storage
         let metricValue = parseFloat(value) || 0;
 
-        if (name === 'range') metricValue = reverseConvertDistance(metricValue, unitSystem);
-        else if (name === 'speed') metricValue = reverseConvertSpeed(metricValue, unitSystem);
+        if (name === 'speed') metricValue = reverseConvertSpeed(metricValue, unitSystem);
         else if (name === 'altitude') metricValue = reverseConvertAltitude(metricValue, unitSystem);
         else if (name === 'payload') metricValue = reverseConvertMass(metricValue, unitSystem);
         else if (name === 'tailArea') metricValue = reverseConvertArea(metricValue, unitSystem);
@@ -164,13 +162,6 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                 <section>
                     <SectionHeader title="Mission Profile" />
                     <div className="grid grid-cols-2 gap-6">
-                        <InputField
-                            label={`Max Range (${config.distanceShort})`}
-                            name="range"
-                            value={convertDistance(data.range, unitSystem).toFixed(1)}
-                            unit={config.distanceShort}
-                            step={unitSystem === 'metric' ? 10 : 10}
-                        />
                         <InputField
                             label={`Cruise Altitude (${config.altitudeShort})`}
                             name="altitude"

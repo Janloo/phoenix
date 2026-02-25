@@ -20,9 +20,8 @@ function App() {
   });
 
   const [designReqs, setDesignReqs] = useState<Requirements>({
-    range: 1000,
-    altitude: 3000,
-    payload: 400,
+    altitude: 2000,
+    payload: 300,
     speed: 60,
     airfoil: 'NACA2412',
     engineType: 'piston',
@@ -61,7 +60,7 @@ function App() {
         tailArea: parseFloat(suggestedTailArea.toFixed(2))
       }));
     }
-  }, [designReqs.range, designReqs.payload, designReqs.speed, designReqs.altitude, designReqs.airfoil]); // Removed tailDist/Area from deps
+  }, [designReqs.payload, designReqs.speed, designReqs.altitude, designReqs.airfoil]); // Removed tailDist/Area from deps
 
   // Intelligent Change Handler
   const handleDesignChange = (newReqs: Requirements) => {

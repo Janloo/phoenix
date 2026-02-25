@@ -28,7 +28,7 @@ export const calculateGeometry = (reqs: any): SizingResult => {
         mtow = manualMassSum + reqs.payload;
     } else {
         // Fallback Heuristic
-        mtow = reqs.payload * 2.8 + (reqs.range * 0.1);
+        mtow = reqs.payload * 2.8;
     }
 
     // 2. Wing Area Calculation
