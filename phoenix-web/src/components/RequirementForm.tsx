@@ -103,7 +103,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                         type={type}
                         name={name}
                         value={value}
-                        step={step}
+                        step="any"
                         min={min}
                         onChange={handleChange}
                         className={`w-full px-3 py-2 bg-slate-700/50 border-y border-slate-600 text-white focus:outline-none focus:ring-0 text-center ${type !== 'number' ? 'rounded-md border-x' : ''}`}

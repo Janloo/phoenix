@@ -59,7 +59,7 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                     <input
                         type="number"
                         min="0"
-                        step="1"
+                        step="any"
                         value={convertMass(displayMass, unitSystem).toFixed(0)}
                         onChange={(e) => {
                             const val = parseFloat(e.target.value);
