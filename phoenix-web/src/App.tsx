@@ -117,16 +117,16 @@ function App() {
                 Geometry
               </li>
               <li
-                onClick={() => setCurrentView('simulator')}
-                className={`cursor-pointer transition ${currentView === 'simulator' ? 'text-green-400 border-b-2 border-green-500' : 'text-green-400/70 hover:text-green-400'}`}
-              >
-                Flight Simulator 3D
-              </li>
-              <li
                 onClick={() => setCurrentView('weights')}
                 className={`cursor-pointer transition ${currentView === 'weights' ? 'text-white border-b-2 border-blue-500' : 'hover:text-white'}`}
               >
                 Weight & Balance
+              </li>
+              <li
+                onClick={() => setCurrentView('simulator')}
+                className={`cursor-pointer transition ${currentView === 'simulator' ? 'text-green-400 border-b-2 border-green-500' : 'text-green-400/70 hover:text-green-400'}`}
+              >
+                Flight Simulator 3D
               </li>
               <li
                 onClick={() => setCurrentView('settings')}
