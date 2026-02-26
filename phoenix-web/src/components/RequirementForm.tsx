@@ -32,13 +32,112 @@ interface Props {
     unitSystem: UnitSystem;
 }
 
+// --- Sub-components defined OUTSIDE the parent to preserve identity across renders ---
+
+const SectionHeader = ({ title }: { title: string }) => (
+    <div className="pb-2 mb-4 border-b border-slate-700">
+        <h3 className="text-lg font-semibold text-blue-400">{title}</h3>
+    </div>
+);
+
+interface InputFieldProps {
+    label: string;
+    name: string;
+    value: string | number;
+    type?: string;
+    unit?: string;
+    subtext?: string;
+    step?: number;
+    min?: number;
+    max?: number;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onIncrement: (name: string, delta: number, step: number, min: number, max?: number) => void;
+}
+
+const InputField: React.FC<InputFieldProps> = ({
+    label, name, value, type = 'number', unit, subtext,
+    step = 1, min = 0, max, onChange, onIncrement
+}) => (
+    <div>
+        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
+        <div className="relative flex items-center">
+            {type === 'number' && (
+                <button
+                    type="button"
+                    onClick={() => onIncrement(name, -step, step, min, max)}
+                    className="bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-l-md px-3 py-2 text-slate-300 hover:text-white transition-colors"
+                >
+                    -
+                </button>
+            )}
+
+            <input
+                type={type}
+                name={name}
+                value={value}
+                step="any"
+                min={min}
+                max={max}
+                onChange={onChange}
+                className={`w-full px-3 py-2 bg-slate-700/50 border-y border-slate-600 text-white focus:outline-none focus:ring-0 text-center ${type !== 'number' ? 'rounded-md border-x' : ''}`}
+                style={{ MozAppearance: 'textfield' }}
+            />
+
+            {type === 'number' && (
+                <button
+                    type="button"
+                    onClick={() => onIncrement(name, step, step, min, max)}
+                    className="bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-r-md px-3 py-2 text-slate-300 hover:text-white transition-colors"
+                >
+                    +
+                </button>
+            )}
+
+            {unit && <span className="absolute right-12 top-2 text-slate-500 text-sm pointer-events-none">{unit}</span>}
+        </div>
+        <style>{`
+            input[type=number]::-webkit-inner-spin-button,
+            input[type=number]::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+        `}</style>
+        {subtext && <div className="mt-1 text-xs text-slate-500">{subtext}</div>}
+    </div>
+);
+
+interface SelectFieldProps {
+    label: string;
+    name: string;
+    value: string;
+    options: { value: string; label: string }[];
+    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+}
+
+const SelectField: React.FC<SelectFieldProps> = ({ label, name, value, options, onChange }) => (
+    <div>
+        <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
+        <select
+            name={name}
+            value={value}
+            onChange={onChange}
+            className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
+        >
+            {options.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+        </select>
+    </div>
+);
+
+// --- Main Form Component ---
+
 export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem }) => {
     const config = UNIT_CONFIGS[unitSystem];
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
-        // For non-string fields, convert from display units back to metric for storage
         let metricValue = parseFloat(value) || 0;
 
         if (name === 'speed') metricValue = reverseConvertSpeed(metricValue, unitSystem);
@@ -53,104 +152,36 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
         });
     };
 
+    const handleIncrement = (name: string, delta: number, step: number, min: number, max?: number) => {
+        const currentDisplayVal = (() => {
+            if (name === 'altitude') return convertAltitude(data.altitude, unitSystem);
+            if (name === 'speed') return convertSpeed(data.speed, unitSystem);
+            if (name === 'payload') return convertMass(data.payload, unitSystem);
+            if (name === 'tailArea') return convertArea(data.tailArea, unitSystem);
+            if (name === 'tailDist') return convertLength(data.tailDist, unitSystem);
+            return (data as any)[name] ?? 0;
+        })();
+
+        let newVal = Math.max(min, currentDisplayVal + delta);
+        if (max !== undefined) newVal = Math.min(max, newVal);
+
+        const syntheticEvent = {
+            target: {
+                name,
+                value: Number.isInteger(step) ? newVal.toString() : newVal.toFixed(2)
+            }
+        } as React.ChangeEvent<HTMLInputElement>;
+        handleChange(syntheticEvent);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        console.log("Submitted Requirements:", data);
+        console.log('Submitted Requirements:', data);
         alert(`Design Configuration Saved!`);
     };
 
-    const SectionHeader = ({ title }: { title: string }) => (
-        <div className="pb-2 mb-4 border-b border-slate-700">
-            <h3 className="text-lg font-semibold text-blue-400">{title}</h3>
-        </div>
-    );
-
-    // Custom Number Input with Button Spinners(with unit conversion for display)
-    const InputField = ({ label, name, value, type = "number", unit, subtext, step = 1, min = 0 }: any) => {
-
-        // Display value (already converted in parent)
-        const displayValue = value;
-
-        const handleIncrement = (delta: number) => {
-            const currentVal = parseFloat(displayValue) || 0;
-            const newVal = Math.max(min, currentVal + delta);
-            // Create a synthetic event to reuse existing handler
-            const syntheticEvent = {
-                target: {
-                    name,
-                    value: Number.isInteger(step) ? newVal.toString() : newVal.toFixed(2)
-                }
-            } as any;
-            handleChange(syntheticEvent);
-        };
-
-        return (
-            <div>
-                <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
-                <div className="relative flex items-center">
-                    {/* Decrement Button */}
-                    {type === "number" && (
-                        <button
-                            type="button"
-                            onClick={() => handleIncrement(-step)}
-                            className="bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-l-md px-3 py-2 text-slate-300 hover:text-white transition-colors"
-                        >
-                            -
-                        </button>
-                    )}
-
-                    <input
-                        type={type}
-                        name={name}
-                        value={value}
-                        step="any"
-                        min={min}
-                        onChange={handleChange}
-                        className={`w-full px-3 py-2 bg-slate-700/50 border-y border-slate-600 text-white focus:outline-none focus:ring-0 text-center ${type !== 'number' ? 'rounded-md border-x' : ''}`}
-                        style={{ MozAppearance: 'textfield' }} // Hide Firefox spinner
-                    />
-
-                    {/* Increment Button */}
-                    {type === "number" && (
-                        <button
-                            type="button"
-                            onClick={() => handleIncrement(step)}
-                            className="bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-r-md px-3 py-2 text-slate-300 hover:text-white transition-colors"
-                        >
-                            +
-                        </button>
-                    )}
-
-                    {unit && <span className="absolute right-12 top-2 text-slate-500 text-sm pointer-events-none">{unit}</span>}
-                </div>
-                {/* CSS to hide Chrome/Safari/Edge spinners */}
-                <style>{`
-                    input[type=number]::-webkit-inner-spin-button, 
-                    input[type=number]::-webkit-outer-spin-button { 
-                        -webkit-appearance: none; 
-                        margin: 0; 
-                    }
-                `}</style>
-                {subtext && <div className="mt-1 text-xs text-slate-500">{subtext}</div>}
-            </div>
-        );
-    };
-
-    const SelectField = ({ label, name, value, options }: any) => (
-        <div>
-            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">{label}</label>
-            <select
-                name={name}
-                value={value}
-                onChange={handleChange}
-                className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none"
-            >
-                {options.map((opt: any) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-            </select>
-        </div>
-    );
+    // Max altitude in display units
+    const maxAltitude = unitSystem === 'metric' ? 42000 : Math.round(convertAltitude(42000, 'imperial'));
 
     return (
         <div className="p-6 max-w-xl mx-auto bg-slate-800 rounded-xl shadow-2xl border border-slate-700">
@@ -168,6 +199,9 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             value={convertAltitude(data.altitude, unitSystem).toFixed(0)}
                             unit={config.altitudeShort}
                             step={unitSystem === 'metric' ? 100 : 500}
+                            max={maxAltitude}
+                            onChange={handleChange}
+                            onIncrement={handleIncrement}
                         />
                         <InputField
                             label={`Payload Mass (${config.massShort})`}
@@ -175,6 +209,8 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             value={convertMass(data.payload, unitSystem).toFixed(0)}
                             unit={config.massShort}
                             step={unitSystem === 'metric' ? 10 : 20}
+                            onChange={handleChange}
+                            onIncrement={handleIncrement}
                         />
                         <InputField
                             label={`Cruise Speed (${config.speedShort})`}
@@ -182,6 +218,8 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             value={convertSpeed(data.speed, unitSystem).toFixed(1)}
                             unit={config.speedShort}
                             step={unitSystem === 'metric' ? 1 : 5}
+                            onChange={handleChange}
+                            onIncrement={handleIncrement}
                         />
                     </div>
                 </section>
@@ -198,6 +236,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                 { value: 'piston', label: 'Reciprocating Piston (Propeller)' },
                                 { value: 'jet', label: 'Turbojet Engine' }
                             ]}
+                            onChange={handleChange}
                         />
                     </div>
                 </section>
@@ -217,6 +256,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                 { value: 'CLARKY', label: 'Clark Y (General Purpose)' },
                                 { value: 'E387', label: 'Eppler 387 (Soaring)' }
                             ]}
+                            onChange={handleChange}
                         />
 
                         <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-700/50">
@@ -228,6 +268,8 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                     value={convertLength(data.tailDist, unitSystem).toFixed(2)}
                                     unit={config.lengthShort}
                                     step={unitSystem === 'metric' ? 0.01 : 0.01}
+                                    onChange={handleChange}
+                                    onIncrement={handleIncrement}
                                 />
                                 <InputField
                                     label={`Tail Area (${config.areaShort})`}
@@ -235,6 +277,8 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                     value={convertArea(data.tailArea, unitSystem).toFixed(2)}
                                     unit={config.areaShort}
                                     step={unitSystem === 'metric' ? 0.01 : 0.01}
+                                    onChange={handleChange}
+                                    onIncrement={handleIncrement}
                                 />
                                 <div className="col-span-2">
                                     <SelectField
@@ -246,6 +290,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                                             { value: 'NACA0009', label: 'NACA 0009 (Thin Symmetric)' },
                                             { value: 'FLAT', label: 'Flat Plate' }
                                         ]}
+                                        onChange={handleChange}
                                     />
                                 </div>
                             </div>

@@ -9,6 +9,82 @@ interface Props {
     unitSystem: UnitSystem;
 }
 
+interface MassControlProps {
+    label: string;
+    massKey: keyof Requirements;
+    posKey: keyof Requirements;
+    color: string;
+    massVal: number;
+    posVal: number;
+    reqs: Requirements;
+    unitSystem: UnitSystem;
+    massUnit: string;
+    lenUnit: string;
+    formatLen: (val: number) => string;
+    onMassChange: (key: keyof Requirements, metricVal: number) => void;
+    onPosChange: (key: keyof Requirements, val: number) => void;
+}
+
+const MassControl: React.FC<MassControlProps> = ({
+    label, massKey, posKey, color, massVal, posVal,
+    reqs, unitSystem, massUnit, lenUnit, formatLen,
+    onMassChange, onPosChange
+}) => {
+    const currentMass = reqs[massKey] as number;
+    const isAuto = !currentMass || currentMass <= 0;
+    const displayMass = isAuto ? massVal : currentMass;
+
+    return (
+        <div className="mb-6 bg-slate-700/30 p-4 rounded-lg border border-slate-700">
+            <div className="flex justify-between items-center mb-2">
+                <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
+                    {label}
+                </label>
+                <div className="text-xs text-slate-500 font-mono">
+                    {isAuto ? '(Auto)' : '(Manual)'}
+                </div>
+            </div>
+
+            {/* Mass Input */}
+            <div className="flex items-center gap-4 mb-3">
+                <label className="text-xs text-slate-400 w-16">Mass ({massUnit})</label>
+                <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={convertMass(displayMass, unitSystem).toFixed(0)}
+                    onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        const metricVal = unitSystem === 'metric' ? val : val / 2.20462;
+                        onMassChange(massKey, metricVal);
+                    }}
+                    className="w-24 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-right text-white text-sm"
+                />
+            </div>
+
+            {/* Position Slider */}
+            <div className="space-y-1">
+                <div className="flex justify-between text-xs text-slate-400">
+                    <span>Position ({lenUnit})</span>
+                    <span className="font-mono text-white">{formatLen(posVal)}</span>
+                </div>
+                <input
+                    type="range"
+                    min="-5" max="10" step="0.1"
+                    value={posVal || 0}
+                    onChange={(e) => onPosChange(posKey, parseFloat(e.target.value))}
+                    className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-slate-600">
+                    <span>Fwd</span>
+                    <span>Aft</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }) => {
     // 1. Calculate Geometry & CG
     const geom = calculateGeometry(reqs);
@@ -60,63 +136,6 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
     const massUnit = unitSystem === 'metric' ? 'kg' : 'lbs';
     const lenUnit = unitSystem === 'metric' ? 'm' : 'ft';
 
-    // Helper Component for Mass Controls
-    const MassControl = ({ label, massKey, posKey, color, massVal, posVal }: any) => {
-        const currentMass = reqs[massKey as keyof Requirements] as number;
-        const isAuto = !currentMass || currentMass <= 0;
-        const displayMass = isAuto ? massVal : currentMass;
-
-        return (
-            <div className="mb-6 bg-slate-700/30 p-4 rounded-lg border border-slate-700">
-                <div className="flex justify-between items-center mb-2">
-                    <label className="text-sm font-bold text-slate-300 flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }}></div>
-                        {label}
-                    </label>
-                    <div className="text-xs text-slate-500 font-mono">
-                        {isAuto ? '(Auto)' : '(Manual)'}
-                    </div>
-                </div>
-
-                {/* Mass Input */}
-                <div className="flex items-center gap-4 mb-3">
-                    <label className="text-xs text-slate-400 w-16">Mass ({massUnit})</label>
-                    <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={convertMass(displayMass, unitSystem).toFixed(0)}
-                        onChange={(e) => {
-                            const val = parseFloat(e.target.value);
-                            const metricVal = unitSystem === 'metric' ? val : val / 2.20462;
-                            updateReq(massKey, metricVal);
-                        }}
-                        className="w-24 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-right text-white text-sm"
-                    />
-                </div>
-
-                {/* Position Slider */}
-                <div className="space-y-1">
-                    <div className="flex justify-between text-xs text-slate-400">
-                        <span>Position ({lenUnit})</span>
-                        <span className="font-mono text-white">{formatLen(posVal)}</span>
-                    </div>
-                    <input
-                        type="range"
-                        min="-5" max="10" step="0.1"
-                        value={posVal || 0}
-                        onChange={(e) => updateReq(posKey, parseFloat(e.target.value))}
-                        className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-slate-600">
-                        <span>Fwd</span>
-                        <span>Aft</span>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Controls */}
@@ -130,6 +149,13 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                         color="#f59e0b"
                         massVal={cgResult.masses.engine.mass}
                         posVal={reqs.enginePos || 0}
+                        reqs={reqs}
+                        unitSystem={unitSystem}
+                        massUnit={massUnit}
+                        lenUnit={lenUnit}
+                        formatLen={formatLen}
+                        onMassChange={updateReq}
+                        onPosChange={updateReq}
                     />
 
                     <MassControl
@@ -138,6 +164,13 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                         color="#ec4899"
                         massVal={cgResult.masses.fuel.mass}
                         posVal={reqs.fuelPos || 0}
+                        reqs={reqs}
+                        unitSystem={unitSystem}
+                        massUnit={massUnit}
+                        lenUnit={lenUnit}
+                        formatLen={formatLen}
+                        onMassChange={updateReq}
+                        onPosChange={updateReq}
                     />
 
                     <MassControl
@@ -146,6 +179,13 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                         color="#64748b"
                         massVal={cgResult.masses.structure.mass}
                         posVal={reqs.structurePos || 0}
+                        reqs={reqs}
+                        unitSystem={unitSystem}
+                        massUnit={massUnit}
+                        lenUnit={lenUnit}
+                        formatLen={formatLen}
+                        onMassChange={updateReq}
+                        onPosChange={updateReq}
                     />
 
                     {/* Payload (Fixed Mass, Fixed Pos) */}
