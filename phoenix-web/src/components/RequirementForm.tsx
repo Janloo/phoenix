@@ -136,7 +136,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
     const config = UNIT_CONFIGS[unitSystem];
 
     // Hard limits (stored in metric)
-    const MAX_ALTITUDE_M = 42000;   // ~FL420 service ceiling
+    const MAX_ALTITUDE_M = 50000;   // 50 km stratospheric ceiling
     const MAX_SPEED_MPS = 339;     // Just below Mach 1 at ISA sea level (~340 m/s)
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -189,9 +189,9 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
     };
 
     // Limits in display units
-    const maxAltitude = unitSystem === 'metric' ? 42000 : Math.round(convertAltitude(42000, 'imperial'));
+    const maxAltitude = unitSystem === 'metric' ? 50000 : Math.round(convertAltitude(50000, 'imperial'));
     const maxSpeed = unitSystem === 'metric' ? 339 : Math.floor(convertSpeed(339, 'imperial'));
-    const maxAltLabel = unitSystem === 'metric' ? '42 000 m' : '137 795 ft';
+    const maxAltLabel = unitSystem === 'metric' ? '50 000 m' : `${Math.round(convertAltitude(50000, 'imperial')).toLocaleString()} ft`;
     const maxSpdLabel = unitSystem === 'metric' ? '339 m/s' : `${Math.floor(convertSpeed(339, 'imperial'))} kts  (Mach 1)`;
 
     return (
