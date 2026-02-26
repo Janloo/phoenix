@@ -135,6 +135,10 @@ const SelectField: React.FC<SelectFieldProps> = ({ label, name, value, options, 
 export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem }) => {
     const config = UNIT_CONFIGS[unitSystem];
 
+    // Hard limits (stored in metric)
+    const MAX_ALTITUDE_M = 42000;   // ~FL420 service ceiling
+    const MAX_SPEED_MPS = 339;     // Just below Mach 1 at ISA sea level (~340 m/s)
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
 
@@ -145,6 +149,10 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
         else if (name === 'payload') metricValue = reverseConvertMass(metricValue, unitSystem);
         else if (name === 'tailArea') metricValue = reverseConvertArea(metricValue, unitSystem);
         else if (name === 'tailDist') metricValue = reverseConvertLength(metricValue, unitSystem);
+
+        // Enforce hard limits on metric values
+        if (name === 'altitude') metricValue = Math.min(MAX_ALTITUDE_M, metricValue);
+        if (name === 'speed') metricValue = Math.min(MAX_SPEED_MPS, metricValue);
 
         onChange({
             ...data,
@@ -180,8 +188,11 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
         alert(`Design Configuration Saved!`);
     };
 
-    // Max altitude in display units
+    // Limits in display units
     const maxAltitude = unitSystem === 'metric' ? 42000 : Math.round(convertAltitude(42000, 'imperial'));
+    const maxSpeed = unitSystem === 'metric' ? 339 : Math.floor(convertSpeed(339, 'imperial'));
+    const maxAltLabel = unitSystem === 'metric' ? '42 000 m' : '137 795 ft';
+    const maxSpdLabel = unitSystem === 'metric' ? '339 m/s' : `${Math.floor(convertSpeed(339, 'imperial'))} kts  (Mach 1)`;
 
     return (
         <div className="p-6 max-w-xl mx-auto bg-slate-800 rounded-xl shadow-2xl border border-slate-700">
@@ -200,6 +211,7 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             unit={config.altitudeShort}
                             step={unitSystem === 'metric' ? 100 : 500}
                             max={maxAltitude}
+                            subtext={`Max: ${maxAltLabel}`}
                             onChange={handleChange}
                             onIncrement={handleIncrement}
                         />
@@ -218,6 +230,8 @@ export const RequirementForm: React.FC<Props> = ({ data, onChange, unitSystem })
                             value={convertSpeed(data.speed, unitSystem).toFixed(1)}
                             unit={config.speedShort}
                             step={unitSystem === 'metric' ? 1 : 5}
+                            max={maxSpeed}
+                            subtext={`Max: ${maxSpdLabel}`}
                             onChange={handleChange}
                             onIncrement={handleIncrement}
                         />
