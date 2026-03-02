@@ -14,7 +14,73 @@ interface Props {
 
 // --- Physics Constants ---
 const GRAVITY = 9.81;
-const AIR_DENSITY = 1.225;
+const SEA_LEVEL_DENSITY = 1.225; // kg/m³ at MSL
+
+/**
+ * ISA (International Standard Atmosphere) air density as a function of altitude.
+ * Uses the troposphere formula up to 11 000 m, then the stratosphere above.
+ */
+function airDensity(altitudeM: number): number {
+    const h = Math.max(0, altitudeM);
+    if (h <= 11000) {
+        // Troposphere: temperature lapse rate 6.5 K/km
+        const T = 288.15 - 0.0065 * h;
+        return SEA_LEVEL_DENSITY * Math.pow(T / 288.15, 4.256);
+    } else {
+        // Stratosphere: isothermal at 216.65 K
+        const rhoAt11k = SEA_LEVEL_DENSITY * Math.pow(216.65 / 288.15, 4.256);
+        return rhoAt11k * Math.exp(-GRAVITY * (h - 11000) / (287.05 * 216.65));
+    }
+}
+
+/**
+ * Engine + propeller efficiency factor (0–1) as a function of altitude and airspeed.
+ *
+ * - Altitude effect: piston/turboprop power scales roughly with air density ratio.
+ *   (Turbofan would be different, but we use a generic model here.)
+ * - Speed (propulsive efficiency): a propeller has peak efficiency at a design
+ *   advance ratio. We model this as a bell-curve centred on ~80 m/s (~155 kt)
+ *   for a generic GA/turboprop aircraft. At 0 speed efficiency is low (~30%),
+ *   peaks near design speed, then falls off at very high speeds.
+ */
+function engineEfficiency(altitudeM: number, speedMs: number): number {
+    const rho = airDensity(altitudeM);
+    const altitudeFactor = rho / SEA_LEVEL_DENSITY; // 1.0 at MSL → 0 at extreme alt
+
+    // Propulsive efficiency: bell-curve with peak at ~80 m/s
+    const designSpeed = 80; // m/s – tune to aircraft type
+    const bandwidth = 70;   // m/s – width of efficiency bell
+    const rawEta = Math.exp(-Math.pow((speedMs - designSpeed) / bandwidth, 2));
+    // Floor at 0.30 so there's always some thrust at low speed (static thrust)
+    const propEfficiency = 0.30 + 0.70 * rawEta;
+
+    return altitudeFactor * propEfficiency;
+}
+
+/**
+ * ISA speed of sound as a function of altitude.
+ * a = sqrt(gamma * R * T) = 20.05 * sqrt(T)
+ */
+function speedOfSound(altitudeM: number): number {
+    const h = Math.max(0, altitudeM);
+    const T = h <= 11000
+        ? 288.15 - 0.0065 * h   // troposphere
+        : 216.65;                // stratosphere (isothermal)
+    return 20.05 * Math.sqrt(T);
+}
+
+/**
+ * Mach-number drag divergence multiplier.
+ * Below M 0.80  → 1.0 (no compressibility penalty).
+ * Above  M 0.80  → rises steeply modelling wave drag.
+ * This creates a hard physical speed ceiling for any subsonic aircraft.
+ */
+function machDragFactor(mach: number): number {
+    if (mach < 0.80) return 1.0;
+    // Cubic rise in drag beyond drag-divergence Mach (~0.80)
+    const dM = mach - 0.80;
+    return 1.0 + 20 * dM * dM * dM + 5 * dM;
+}
 
 // --- Aircraft Model Component ---
 const Aircraft: React.FC<{ reqs: Requirements; pitch: number; roll: number; yaw: number }> = ({ reqs, pitch, roll, yaw }) => {
@@ -79,6 +145,7 @@ const CockpitCamera = ({ position, quaternion }: { position: THREE.Vector3, quat
 // --- Main Simulation Scene ---
 const SimulationScene: React.FC<{
     reqs: Requirements;
+    maxThrust: number;   // Newtons – controlled by HUD slider
     setTelemetry: (t: {
         altitude: number;
         speed: number;
@@ -90,7 +157,7 @@ const SimulationScene: React.FC<{
         aileron: number;
         rudder: number;
     }) => void
-}> = ({ reqs, setTelemetry }) => {
+}> = ({ reqs, maxThrust, setTelemetry }) => {
     // Physics State
     const position = useRef(new THREE.Vector3(0, 0, 0)); // Start on ground
     const velocity = useRef(new THREE.Vector3(0, 0, 0)); // Start stationary
@@ -109,7 +176,7 @@ const SimulationScene: React.FC<{
             wingArea: Math.max(geom.wingArea, 1) // Min 1m^2
         };
     }, [reqs]);
-    const maxThrust = (mtow * 9.81) * 0.5; // T/W ~ 0.5 for generic GA
+    // maxThrust comes from the HUD slider (prop)
 
     useEffect(() => {
         const handleDown = (e: KeyboardEvent) => { keys.current[e.code] = true; };
@@ -150,38 +217,53 @@ const SimulationScene: React.FC<{
         if (keys.current['KeyW']) throttle.current = Math.min(1, throttle.current + 0.5 * dt);
         if (keys.current['KeyS']) throttle.current = Math.max(0, throttle.current - 0.5 * dt);
 
-        // Apply Control Inputs to Physics
-        // Control Authority scales with dynamic pressure (speed^2), approx.
-        // At 0 speed -> 0 authority. At ~20m/s -> 1.0. Max 2.0.
-        // Using smoothstep logic or simple ratio:
-        const controlAuthority = Math.min((velocity.current.lengthSq() / 400), 2.0);
-
-        euler.current.x += controls.current.elevator * 2 * controlAuthority * dt;
-        euler.current.z -= controls.current.aileron * 2 * controlAuthority * dt; // Roll follows aileron
-        euler.current.y += controls.current.rudder * 1 * controlAuthority * dt;
-
-        // Clamp Pitch/Roll slightly to avoid easy flipping in this simple model
-        euler.current.z *= 0.99; // Auto-level roll
-
         // 2. Compute Physics Forces
-        // Local Velocity
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion.current);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion.current);
-
+        // Velocity magnitude — computed early so pitch-damping can use it
         const speed = velocity.current.length();
         const speedSq = speed * speed;
 
-        // Lift
-        // Simplified: Lift = 0.5 * rho * v^2 * S * Cl
-        // Cl approx proportional to Angle of Attack (here simplified as pitch for now, ideally alpha)
-        // For this demo: Lift opposes gravity + extra for pitch up
+        // Apply Control Inputs to Physics
+        // Control authority: ramps from 0 at rest to 1.0 at ~20 m/s (v²/400), capped at 1.0.
+        // Keeping the cap at 1.0 (not 2.0) prevents explosive pitch accumulation at speed.
+        const controlAuthority = Math.min(velocity.current.lengthSq() / 400, 1.0);
+
+        // Pitch rate: 0.8 rad/s max, roll: 0.8 rad/s max, yaw: 0.5 rad/s max
+        euler.current.x += controls.current.elevator * 0.8 * controlAuthority * dt;
+        euler.current.z -= controls.current.aileron * 0.8 * controlAuthority * dt;
+        euler.current.y += controls.current.rudder * 0.5 * controlAuthority * dt;
+
+        // --- Pitch clamp: ±45° prevents inverted flight where all forces flip ---
+        const MAX_PITCH = Math.PI / 4; // 45°
+        euler.current.x = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, euler.current.x));
+
+        // --- Pitch damping: gently restores level when no elevator input ---
+        // Strength 1.5 s time-constant; stronger when airborne (speed > 5 m/s)
+        if (speed > 5) {
+            euler.current.x *= Math.pow(0.995, dt * 60); // ~0.5 rad/s decay
+        }
+
+        // --- Roll auto-level ---
+        euler.current.z *= 0.98; // slightly stronger auto-level
+
+        // Local aircraft axes
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion.current);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion.current);
+
+        // Altitude-dependent air density (ISA model) – shared by lift and drag
+        const rho = airDensity(position.current.y);
+
+        // Lift: Lift = 0.5 * rho * v^2 * S * Cl
+        // Cl approx proportional to Angle of Attack (simplified as pitch)
         const cl = 0.3 + (euler.current.x * 5); // Base lift + Pitch effect
-        const liftMag = 0.5 * AIR_DENSITY * speedSq * wingArea * Math.max(0, cl);
+        const liftMag = 0.5 * rho * speedSq * wingArea * Math.max(0, cl);
         const lift = up.clone().multiplyScalar(liftMag);
 
-        // Drag
-        const cd = 0.04 + (cl * cl * 0.05);
-        const dragMag = 0.5 * AIR_DENSITY * speedSq * wingArea * cd;
+        // Drag with compressibility (Mach divergence)
+        // Cd0 = 0.065 accounts for fuselage, trim and interference drag
+        //       beyond the wing polar alone.
+        const mach = speed / speedOfSound(position.current.y);
+        const cd = (0.065 + cl * cl * 0.05) * machDragFactor(mach);
+        const dragMag = 0.5 * rho * speedSq * wingArea * cd;
         let drag = new THREE.Vector3(0, 0, 0);
         if (speed > 0.001) {
             const dragDir = velocity.current.clone().normalize();
@@ -190,8 +272,9 @@ const SimulationScene: React.FC<{
             }
         }
 
-        // Thrust
-        const thrust = forward.clone().multiplyScalar(maxThrust * throttle.current);
+        // Thrust – scaled by engine+propeller efficiency (altitude × speed)
+        const efficiency = engineEfficiency(position.current.y, speed);
+        const thrust = forward.clone().multiplyScalar(maxThrust * throttle.current * efficiency);
 
         // Gravity
         const gravity = new THREE.Vector3(0, -GRAVITY * mtow, 0);
@@ -281,6 +364,22 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
         rudder: 0
     });
 
+    // Suggested max thrust from aircraft parameters (T/W = 0.30)
+    const calcThrust = useMemo(() => {
+        const geom = calculateGeometry(reqs);
+        const mtow = Math.max(geom.mtow, 100);
+        return Math.round(mtow * 9.81 * 0.30); // Newtons
+    }, [reqs]);
+
+    // User-overridable max thrust; initialised to the calculated suggestion
+    const [thrustN, setThrustN] = useState<number>(() => {
+        const geom = calculateGeometry(reqs);
+        return Math.round(Math.max(geom.mtow, 100) * 9.81 * 0.30);
+    });
+
+    // Slider range: 0 → 3× suggested thrust
+    const sliderMax = calcThrust * 3;
+
     return (
         <div className="w-full h-[600px] relative bg-black rounded-lg overflow-hidden border border-slate-700">
             {/* 3D Viewport */}
@@ -289,7 +388,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} castShadow />
 
-                <SimulationScene reqs={reqs} setTelemetry={setTelemetry} />
+                <SimulationScene reqs={reqs} maxThrust={thrustN} setTelemetry={setTelemetry} />
 
                 <Grid
                     infiniteGrid
@@ -307,17 +406,46 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
             {/* HUD Overlay */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none p-6 flex flex-col justify-between">
                 {/* Top Bar */}
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-4">
+                    {/* Flight state */}
                     <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-green-400 font-mono text-sm">
                         <div>THROTTLE: {(telemetry.throttle * 100).toFixed(0)}%</div>
                         <div>PITCH: {telemetry.pitch.toFixed(1)}°</div>
                         <div>ROLL: {telemetry.roll.toFixed(1)}°</div>
                     </div>
+
+                    {/* Engine thrust override */}
+                    <div className="pointer-events-auto bg-black/60 p-3 rounded backdrop-blur-sm text-yellow-300 font-mono text-xs flex flex-col gap-1 min-w-[200px]">
+                        <div className="flex justify-between items-center">
+                            <span className="font-bold text-yellow-400">MAX THRUST</span>
+                            <span className="text-white text-sm font-bold">{thrustN.toLocaleString()} N</span>
+                        </div>
+                        <input
+                            type="range"
+                            min={0}
+                            max={sliderMax}
+                            step={Math.max(1, Math.round(sliderMax / 200))}
+                            value={thrustN}
+                            onChange={e => setThrustN(Number(e.target.value))}
+                            className="w-full accent-yellow-400 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-slate-400">
+                            <span>0</span>
+                            <button
+                                onClick={() => setThrustN(calcThrust)}
+                                className="text-yellow-500 hover:text-yellow-300 underline"
+                            >
+                                AUTO ({calcThrust.toLocaleString()} N)
+                            </button>
+                            <span>{sliderMax.toLocaleString()}</span>
+                        </div>
+                    </div>
+
                     <button
                         onClick={onExit}
                         className="pointer-events-auto bg-red-600/80 hover:bg-red-600 text-white px-4 py-2 rounded font-bold backdrop-blur-sm transition"
                     >
-                        ABSORT FLIGHT
+                        ABORT FLIGHT
                     </button>
                 </div>
 
