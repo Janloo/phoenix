@@ -12,75 +12,7 @@ interface Props {
     onExit: () => void;
 }
 
-// --- Physics Constants ---
-const GRAVITY = 9.81;
-const SEA_LEVEL_DENSITY = 1.225; // kg/m³ at MSL
-
-/**
- * ISA (International Standard Atmosphere) air density as a function of altitude.
- * Uses the troposphere formula up to 11 000 m, then the stratosphere above.
- */
-function airDensity(altitudeM: number): number {
-    const h = Math.max(0, altitudeM);
-    if (h <= 11000) {
-        // Troposphere: temperature lapse rate 6.5 K/km
-        const T = 288.15 - 0.0065 * h;
-        return SEA_LEVEL_DENSITY * Math.pow(T / 288.15, 4.256);
-    } else {
-        // Stratosphere: isothermal at 216.65 K
-        const rhoAt11k = SEA_LEVEL_DENSITY * Math.pow(216.65 / 288.15, 4.256);
-        return rhoAt11k * Math.exp(-GRAVITY * (h - 11000) / (287.05 * 216.65));
-    }
-}
-
-/**
- * Engine + propeller efficiency factor (0–1) as a function of altitude and airspeed.
- *
- * - Altitude effect: piston/turboprop power scales roughly with air density ratio.
- *   (Turbofan would be different, but we use a generic model here.)
- * - Speed (propulsive efficiency): a propeller has peak efficiency at a design
- *   advance ratio. We model this as a bell-curve centred on ~80 m/s (~155 kt)
- *   for a generic GA/turboprop aircraft. At 0 speed efficiency is low (~30%),
- *   peaks near design speed, then falls off at very high speeds.
- */
-function engineEfficiency(altitudeM: number, speedMs: number): number {
-    const rho = airDensity(altitudeM);
-    const altitudeFactor = rho / SEA_LEVEL_DENSITY; // 1.0 at MSL → 0 at extreme alt
-
-    // Propulsive efficiency: bell-curve with peak at ~80 m/s
-    const designSpeed = 80; // m/s – tune to aircraft type
-    const bandwidth = 70;   // m/s – width of efficiency bell
-    const rawEta = Math.exp(-Math.pow((speedMs - designSpeed) / bandwidth, 2));
-    // Floor at 0.30 so there's always some thrust at low speed (static thrust)
-    const propEfficiency = 0.30 + 0.70 * rawEta;
-
-    return altitudeFactor * propEfficiency;
-}
-
-/**
- * ISA speed of sound as a function of altitude.
- * a = sqrt(gamma * R * T) = 20.05 * sqrt(T)
- */
-function speedOfSound(altitudeM: number): number {
-    const h = Math.max(0, altitudeM);
-    const T = h <= 11000
-        ? 288.15 - 0.0065 * h   // troposphere
-        : 216.65;                // stratosphere (isothermal)
-    return 20.05 * Math.sqrt(T);
-}
-
-/**
- * Mach-number drag divergence multiplier.
- * Below M 0.80  → 1.0 (no compressibility penalty).
- * Above  M 0.80  → rises steeply modelling wave drag.
- * This creates a hard physical speed ceiling for any subsonic aircraft.
- */
-function machDragFactor(mach: number): number {
-    if (mach < 0.80) return 1.0;
-    // Cubic rise in drag beyond drag-divergence Mach (~0.80)
-    const dM = mach - 0.80;
-    return 1.0 + 20 * dM * dM * dM + 5 * dM;
-}
+import { airDensity, engineEfficiency, speedOfSound, machDragFactor, GRAVITY } from '../utils/physics';
 
 // --- Aircraft Model Component ---
 const Aircraft: React.FC<{ reqs: Requirements; pitch: number; roll: number; yaw: number }> = ({ reqs, pitch, roll, yaw }) => {
@@ -253,10 +185,46 @@ const SimulationScene: React.FC<{
         const rho = airDensity(position.current.y);
 
         // Lift: Lift = 0.5 * rho * v^2 * S * Cl
-        // Cl approx proportional to Angle of Attack (simplified as pitch)
-        const cl = 0.3 + (euler.current.x * 5); // Base lift + Pitch effect
-        const liftMag = 0.5 * rho * speedSq * wingArea * Math.max(0, cl);
-        const lift = up.clone().multiplyScalar(liftMag);
+        // The angle of attack (AoA) is the angle between the velocity vector and the chord line (pitch)
+        let aoa = euler.current.x; // Simplified AoA
+
+        // If moving, actual AoA is pitch minus flight path angle
+        if (speed > 1.0) {
+            // Velocity direction in local coordinates
+            const velocityDir = velocity.current.clone().normalize();
+            // Flight path angle
+            const fpa = Math.asin(Math.max(-1, Math.min(1, velocityDir.y)));
+            aoa = euler.current.x - fpa;
+        }
+
+        // Lift coefficient (Cl) curve:
+        // Instead of hardcoding 0.3 + aoa*5, we should ensure that at 0 AoA, lift is moderate but 
+        // if pitch/AoA is zero or negative and speed is low, it doesn't just infinitely hold the plane up.
+        // A typical symmetrical wing has Cl = 0 at 0 AoA. A cambered wing has some positive Cl at 0 AoA.
+        // Let's use Cl = 0.1 + (aoa * 5) so it doesn't generate excessive lift when nose-level at 0 throttle.
+        let cl = 0.1 + (aoa * 5);
+        // Simple stall
+        if (aoa > 0.26) { // ~15 deg
+            cl = Math.max(0, 0.1 + (0.26 * 5) - ((aoa - 0.26) * 10));
+        } else if (aoa < -0.15) { // Negative stall
+            cl = Math.min(0, 0.1 + (-0.15 * 5) - ((aoa + 0.15) * 10));
+        }
+
+        const liftMag = 0.5 * rho * speedSq * wingArea * cl;
+
+        // Lift is perpendicular to the *velocity vector*, not simply local exact 'up'.
+        // To approximate without complex quaternion math from velocity, we can use local 'up'
+        // for small angles, or find the cross product.
+        let liftDir = up.clone();
+        if (speed > 1.0) {
+            const right = forward.clone().cross(up).normalize(); // Local right
+            const vDir = velocity.current.clone().normalize();
+            liftDir = right.cross(vDir).normalize();
+            // Ensure it points mostly "up" relative to the aircraft
+            if (liftDir.y < 0 && cl > 0) liftDir.negate();
+        }
+
+        const lift = liftDir.clone().multiplyScalar(liftMag);
 
         // Drag with compressibility (Mach divergence)
         // Cd0 = 0.065 accounts for fuselage, trim and interference drag
@@ -286,16 +254,19 @@ const SimulationScene: React.FC<{
             const liftY = lift.y; // Assuming up is (0,1,0) roughly
             const weight = mtow * GRAVITY;
             const normalForce = Math.max(0, weight - liftY);
-            const frictionCoeff = 0.02; // Tarmac
+            // Higher friction to ensure it stops
+            const frictionCoeff = 0.05; // Tarmac + brakes/idle friction
             const speedVal = velocity.current.length();
-            if (speedVal > 0.1) {
+            if (speedVal > 0.5) {
                 const vec = velocity.current.clone().normalize();
                 if (vec.lengthSq() > 0) {
                     rollingResistance = vec.multiplyScalar(-normalForce * frictionCoeff);
                 }
-            } else if (throttle.current <= 0.01) {
-                // Stop if very slow AND no significant throttle
-                velocity.current.set(0, 0, 0);
+            } else {
+                // Hard stop if very slow and no thrust
+                if (throttle.current <= 0.05) {
+                    velocity.current.set(0, 0, 0);
+                }
             }
         }
 
