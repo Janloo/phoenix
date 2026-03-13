@@ -494,7 +494,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                         <div className="text-xs text-slate-400">AIRSPEED</div>
                     </div>
 
-                    <div className="absolute top-16 right-6 bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right scale-[0.9] origin-top-right">
+                    <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right scale-[0.9] origin-bottom-right">
                         <div className="text-2xl font-bold">{convertAltitude(telemetry.altitude, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm' : 'ft'}</span></div>
                         <div className="text-xs text-slate-400">ALTITUDE</div>
                     </div>
@@ -539,9 +539,8 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                                 <div
                                     className="absolute top-0 h-full bg-blue-500 transition-all duration-75"
                                     style={{
-                                        left: '50%',
+                                        left: telemetry.elevator < 0 ? `${50 + telemetry.elevator * 50}%` : '50%',
                                         width: `${Math.abs(telemetry.elevator) * 50}%`,
-                                        transform: `translateX(${telemetry.elevator < 0 ? '-100%' : '0'})`
                                     }}
                                 />
                             </div>
@@ -554,9 +553,8 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                                 <div
                                     className="absolute top-0 h-full bg-blue-500 transition-all duration-75"
                                     style={{
-                                        left: '50%',
+                                        left: telemetry.aileron < 0 ? `${50 + telemetry.aileron * 50}%` : '50%',
                                         width: `${Math.abs(telemetry.aileron) * 50}%`,
-                                        transform: `translateX(${telemetry.aileron < 0 ? '-100%' : '0'})`
                                     }}
                                 />
                             </div>
@@ -569,9 +567,8 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                                 <div
                                     className="absolute top-0 h-full bg-blue-500 transition-all duration-75"
                                     style={{
-                                        left: '50%',
+                                        left: telemetry.rudder < 0 ? `${50 + telemetry.rudder * 50}%` : '50%',
                                         width: `${Math.abs(telemetry.rudder) * 50}%`,
-                                        transform: `translateX(${telemetry.rudder < 0 ? '-100%' : '0'})`
                                     }}
                                 />
                             </div>
