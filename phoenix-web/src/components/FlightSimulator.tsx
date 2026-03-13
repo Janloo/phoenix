@@ -86,6 +86,7 @@ const SimulationScene: React.FC<{
         pitch: number;
         roll: number;
         aoa: number;
+        vsi: number;
         elevator: number;
         aileron: number;
         rudder: number;
@@ -155,22 +156,45 @@ const SimulationScene: React.FC<{
         const speed = velocity.current.length();
         const speedSq = speed * speed;
 
+        // Local aircraft axes at start of frame
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion.current);
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion.current);
+
+        // Altitude-dependent air density (ISA model) – shared by lift and drag
+        const rho = airDensity(position.current.y);
+
+        // True 6DOF Angle of Attack (AoA) & Slip Angle
+        let aoa = 0;
+        let slipAngle = 0;
+        if (speed > 1.0) {
+            const vDir = velocity.current.clone().normalize();
+            aoa = Math.atan2(-vDir.dot(up), vDir.dot(forward));
+            const right = forward.clone().cross(up).normalize();
+            slipAngle = Math.asin(Math.max(-1, Math.min(1, vDir.dot(right))));
+        } else {
+            aoa = euler.current.x; // Fallback when stationary
+        }
+
         // Apply Control Inputs to Physics
-        // Control authority: scales with dynamic pressure (velocity squared).
         // Added Propwash: if throttle is applied, it blows air directly over the elevator and rudder,
         // giving them minimum control authority even at 0 airspeed (crucial for stall/spin recovery).
         const airspeedAuthority = velocity.current.lengthSq() / 400; // 1.0 at ~20 m/s
         const propwashAuthority = throttle.current * 0.4; // Up to 40% authority from full throttle alone
 
         // Angular Rates
-        // Pitch and Yaw benefit from propwash. Roll (ailerons on wings) mostly relies strictly on airspeed.
         const pitchAuthority = Math.min(Math.max(airspeedAuthority, propwashAuthority), 1.0);
         const yawAuthority = pitchAuthority;
         const rollAuthority = Math.min(airspeedAuthority, 1.0);
 
-        const pitchRate = controls.current.elevator * 1.8 * pitchAuthority;
-        const rollRate = -controls.current.aileron * 2.8 * rollAuthority;
-        const yawRate = -controls.current.rudder * 1.0 * yawAuthority;
+        // Natural aerodynamic stability (weathervaning into the relative wind)
+        // A plane's tail pushes it to naturally align with the airflow.
+        // This causes the nose to aggressively drop into the fall during a stall.
+        const restoringPitch = -aoa * 4.0 * Math.min(airspeedAuthority, 1.0);
+        const restoringYaw = -slipAngle * 4.0 * Math.min(airspeedAuthority, 1.0);
+
+        const pitchRate = controls.current.elevator * 2.0 * pitchAuthority + restoringPitch;
+        const rollRate = -controls.current.aileron * 3.0 * rollAuthority;
+        const yawRate = -controls.current.rudder * 1.5 * yawAuthority + restoringYaw;
 
         // Apply local rotation (6DOF)
         const localRot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchRate * dt);
@@ -192,29 +216,6 @@ const SimulationScene: React.FC<{
                 euler.current.z *= Math.pow(0.98, dt * 60);
                 quaternion.current.setFromEuler(euler.current);
             }
-        }
-
-        // Local aircraft axes
-        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion.current);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(quaternion.current);
-
-        // Altitude-dependent air density (ISA model) – shared by lift and drag
-        const rho = airDensity(position.current.y);
-
-        // Lift: Lift = 0.5 * rho * v^2 * S * Cl
-        // True 6DOF Angle of Attack (AoA)
-        let aoa = 0;
-        let slipAngle = 0;
-        if (speed > 1.0) {
-            const vDir = velocity.current.clone().normalize();
-            // Project velocity onto local Up and Forward to find AoA
-            aoa = Math.atan2(-vDir.dot(up), vDir.dot(forward));
-
-            // Calculate side slip angle for lateral drag
-            const right = forward.clone().cross(up).normalize();
-            slipAngle = Math.asin(Math.max(-1, Math.min(1, vDir.dot(right))));
-        } else {
-            aoa = euler.current.x; // Fallback when stationary
         }
 
         // Lift coefficient (Cl) curve:
@@ -250,8 +251,10 @@ const SimulationScene: React.FC<{
         const mach = speed / speedOfSound(position.current.y);
 
         // Massive form drag when not flying straight (separated flow / flat plate drag)
-        // A flat plate perpendicular to flow has Cd ≈ 1.28. This restricts speed when stalled or spinning.
-        const crossFlowDrag = 1.28 * Math.pow(Math.sin(aoa), 2) + 0.8 * Math.pow(Math.sin(slipAngle), 2);
+        // A flat plate perpendicular to flow has Cd ≈ 1.28, but we must account for the fuselage 
+        // and tail area which adds to the effective flat plate area of just the wings.
+        // We use a higher multiplier to simulate the entire planform area acting as an airbrake.
+        const crossFlowDrag = 3.5 * Math.pow(Math.sin(aoa), 2) + 2.0 * Math.pow(Math.sin(slipAngle), 2);
 
         const cd = (0.065 + cl * cl * 0.05 + crossFlowDrag) * machDragFactor(mach);
         const dragMag = 0.5 * rho * speedSq * wingArea * cd;
@@ -318,6 +321,7 @@ const SimulationScene: React.FC<{
             pitch: (euler.current.x * 180 / Math.PI),
             roll: (euler.current.z * 180 / Math.PI),
             aoa: (aoa * 180 / Math.PI),
+            vsi: velocity.current.y, // raw m/s climb/descent rate
             elevator: controls.current.elevator,
             aileron: controls.current.aileron,
             rudder: controls.current.rudder
@@ -424,6 +428,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
         pitch: number;
         roll: number;
         aoa: number;
+        vsi: number;
         elevator: number;
         aileron: number;
         rudder: number;
@@ -435,6 +440,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
         pitch: 0,
         roll: 0,
         aoa: 0,
+        vsi: 0,
         elevator: 0,
         aileron: 0,
         rudder: 0
@@ -517,9 +523,24 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                         <div className="text-xs text-slate-400">AIRSPEED</div>
                     </div>
 
-                    <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right scale-[0.9] origin-bottom-right">
-                        <div className="text-2xl font-bold">{convertAltitude(telemetry.altitude, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm' : 'ft'}</span></div>
-                        <div className="text-xs text-slate-400">ALTITUDE</div>
+                    <div className="absolute top-16 right-6 flex flex-col items-end gap-2 scale-[0.9] origin-top-right">
+                        {/* Altitude */}
+                        <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right w-full">
+                            <div className="text-2xl font-bold">
+                                {convertAltitude(telemetry.altitude, unitSystem).toFixed(0)}{' '}
+                                <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm' : 'ft'}</span>
+                            </div>
+                            <div className="text-xs text-slate-400">ALTITUDE</div>
+                        </div>
+                        {/* Vertical Speed Indicator */}
+                        <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right w-full">
+                            <div className={`text-xl font-bold ${telemetry.vsi > 1 ? 'text-green-400' : telemetry.vsi < -1 ? 'text-red-400' : 'text-slate-300'}`}>
+                                {telemetry.vsi > 0.05 ? '+' : ''}
+                                {(unitSystem === 'metric' ? telemetry.vsi : telemetry.vsi * 196.85).toFixed(0)}{' '}
+                                <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm/s' : 'fpm'}</span>
+                            </div>
+                            <div className="text-xs text-slate-400">VERT SPEED</div>
+                        </div>
                     </div>
                 </div>
 
