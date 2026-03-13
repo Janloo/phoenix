@@ -85,6 +85,7 @@ const SimulationScene: React.FC<{
         heading: number;
         pitch: number;
         roll: number;
+        aoa: number;
         elevator: number;
         aileron: number;
         rudder: number;
@@ -155,13 +156,21 @@ const SimulationScene: React.FC<{
         const speedSq = speed * speed;
 
         // Apply Control Inputs to Physics
-        // Control authority: ramps from 0 at rest to 1.0 at ~20 m/s (v²/400), capped at 1.0.
-        const controlAuthority = Math.min(velocity.current.lengthSq() / 400, 1.0);
+        // Control authority: scales with dynamic pressure (velocity squared).
+        // Added Propwash: if throttle is applied, it blows air directly over the elevator and rudder,
+        // giving them minimum control authority even at 0 airspeed (crucial for stall/spin recovery).
+        const airspeedAuthority = velocity.current.lengthSq() / 400; // 1.0 at ~20 m/s
+        const propwashAuthority = throttle.current * 0.4; // Up to 40% authority from full throttle alone
 
         // Angular Rates
-        const pitchRate = controls.current.elevator * 1.5 * controlAuthority;
-        const rollRate = -controls.current.aileron * 2.5 * controlAuthority;
-        const yawRate = -controls.current.rudder * 0.8 * controlAuthority;
+        // Pitch and Yaw benefit from propwash. Roll (ailerons on wings) mostly relies strictly on airspeed.
+        const pitchAuthority = Math.min(Math.max(airspeedAuthority, propwashAuthority), 1.0);
+        const yawAuthority = pitchAuthority;
+        const rollAuthority = Math.min(airspeedAuthority, 1.0);
+
+        const pitchRate = controls.current.elevator * 1.8 * pitchAuthority;
+        const rollRate = -controls.current.aileron * 2.8 * rollAuthority;
+        const yawRate = -controls.current.rudder * 1.0 * yawAuthority;
 
         // Apply local rotation (6DOF)
         const localRot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchRate * dt);
@@ -195,10 +204,15 @@ const SimulationScene: React.FC<{
         // Lift: Lift = 0.5 * rho * v^2 * S * Cl
         // True 6DOF Angle of Attack (AoA)
         let aoa = 0;
+        let slipAngle = 0;
         if (speed > 1.0) {
             const vDir = velocity.current.clone().normalize();
             // Project velocity onto local Up and Forward to find AoA
             aoa = Math.atan2(-vDir.dot(up), vDir.dot(forward));
+
+            // Calculate side slip angle for lateral drag
+            const right = forward.clone().cross(up).normalize();
+            slipAngle = Math.asin(Math.max(-1, Math.min(1, vDir.dot(right))));
         } else {
             aoa = euler.current.x; // Fallback when stationary
         }
@@ -234,7 +248,12 @@ const SimulationScene: React.FC<{
         // Cd0 = 0.065 accounts for fuselage, trim and interference drag
         //       beyond the wing polar alone.
         const mach = speed / speedOfSound(position.current.y);
-        const cd = (0.065 + cl * cl * 0.05) * machDragFactor(mach);
+
+        // Massive form drag when not flying straight (separated flow / flat plate drag)
+        // A flat plate perpendicular to flow has Cd ≈ 1.28. This restricts speed when stalled or spinning.
+        const crossFlowDrag = 1.28 * Math.pow(Math.sin(aoa), 2) + 0.8 * Math.pow(Math.sin(slipAngle), 2);
+
+        const cd = (0.065 + cl * cl * 0.05 + crossFlowDrag) * machDragFactor(mach);
         const dragMag = 0.5 * rho * speedSq * wingArea * cd;
         let drag = new THREE.Vector3(0, 0, 0);
         if (speed > 0.001) {
@@ -298,6 +317,7 @@ const SimulationScene: React.FC<{
             heading: (euler.current.y * 180 / Math.PI) % 360,
             pitch: (euler.current.x * 180 / Math.PI),
             roll: (euler.current.z * 180 / Math.PI),
+            aoa: (aoa * 180 / Math.PI),
             elevator: controls.current.elevator,
             aileron: controls.current.aileron,
             rudder: controls.current.rudder
@@ -403,6 +423,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
         heading: number;
         pitch: number;
         roll: number;
+        aoa: number;
         elevator: number;
         aileron: number;
         rudder: number;
@@ -413,6 +434,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
         heading: 0,
         pitch: 0,
         roll: 0,
+        aoa: 0,
         elevator: 0,
         aileron: 0,
         rudder: 0
@@ -471,6 +493,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                         <div>THR: {(telemetry.throttle * 100).toFixed(0)}%</div>
                         <div>PTCH: {telemetry.pitch.toFixed(1)}°</div>
                         <div>ROLL: {telemetry.roll.toFixed(1)}°</div>
+                        <div className={telemetry.aoa > 14 || telemetry.aoa < -14 ? "text-red-500 font-bold" : ""}>AOA: {telemetry.aoa.toFixed(1)}°</div>
                     </div>
 
                     {/* Top Flight State moved or adjusted manually later, just remove thrust override from right side */}
