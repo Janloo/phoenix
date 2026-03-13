@@ -156,26 +156,34 @@ const SimulationScene: React.FC<{
 
         // Apply Control Inputs to Physics
         // Control authority: ramps from 0 at rest to 1.0 at ~20 m/s (v²/400), capped at 1.0.
-        // Keeping the cap at 1.0 (not 2.0) prevents explosive pitch accumulation at speed.
         const controlAuthority = Math.min(velocity.current.lengthSq() / 400, 1.0);
 
-        // Pitch rate: 0.8 rad/s max, roll: 0.8 rad/s max, yaw: 0.5 rad/s max
-        euler.current.x += controls.current.elevator * 0.8 * controlAuthority * dt;
-        euler.current.z -= controls.current.aileron * 0.8 * controlAuthority * dt;
-        euler.current.y += controls.current.rudder * 0.5 * controlAuthority * dt;
+        // Angular Rates
+        const pitchRate = controls.current.elevator * 1.5 * controlAuthority;
+        const rollRate = -controls.current.aileron * 2.5 * controlAuthority;
+        const yawRate = -controls.current.rudder * 0.8 * controlAuthority;
 
-        // --- Pitch clamp: ±45° prevents inverted flight where all forces flip ---
-        const MAX_PITCH = Math.PI / 4; // 45°
-        euler.current.x = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, euler.current.x));
+        // Apply local rotation (6DOF)
+        const localRot = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchRate * dt);
+        localRot.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rollRate * dt));
+        localRot.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawRate * dt));
 
-        // --- Pitch damping: gently restores level when no elevator input ---
-        // Strength 1.5 s time-constant; stronger when airborne (speed > 5 m/s)
-        if (speed > 5) {
-            euler.current.x *= Math.pow(0.995, dt * 60); // ~0.5 rad/s decay
+        quaternion.current.multiply(localRot);
+        quaternion.current.normalize();
+
+        // Extract eulers for HUD and telemetry
+        euler.current.setFromQuaternion(quaternion.current, 'YXZ');
+
+        // Optional natural damping: gently restores level when no inputs & airplane is near level flight
+        if (speed > 5 && Math.abs(controls.current.elevator) < 0.1 && Math.abs(controls.current.aileron) < 0.1) {
+            // Only auto-level if upright and within 60 degrees of being level
+            if (Math.abs(euler.current.z) < Math.PI / 3 && Math.abs(euler.current.x) < Math.PI / 3) {
+                // To safely damp euler and update quaternion without singularities
+                euler.current.x *= Math.pow(0.99, dt * 60);
+                euler.current.z *= Math.pow(0.98, dt * 60);
+                quaternion.current.setFromEuler(euler.current);
+            }
         }
-
-        // --- Roll auto-level ---
-        euler.current.z *= 0.98; // slightly stronger auto-level
 
         // Local aircraft axes
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(quaternion.current);
@@ -185,16 +193,14 @@ const SimulationScene: React.FC<{
         const rho = airDensity(position.current.y);
 
         // Lift: Lift = 0.5 * rho * v^2 * S * Cl
-        // The angle of attack (AoA) is the angle between the velocity vector and the chord line (pitch)
-        let aoa = euler.current.x; // Simplified AoA
-
-        // If moving, actual AoA is pitch minus flight path angle
+        // True 6DOF Angle of Attack (AoA)
+        let aoa = 0;
         if (speed > 1.0) {
-            // Velocity direction in local coordinates
-            const velocityDir = velocity.current.clone().normalize();
-            // Flight path angle
-            const fpa = Math.asin(Math.max(-1, Math.min(1, velocityDir.y)));
-            aoa = euler.current.x - fpa;
+            const vDir = velocity.current.clone().normalize();
+            // Project velocity onto local Up and Forward to find AoA
+            aoa = Math.atan2(-vDir.dot(up), vDir.dot(forward));
+        } else {
+            aoa = euler.current.x; // Fallback when stationary
         }
 
         // Lift coefficient (Cl) curve:
@@ -212,16 +218,14 @@ const SimulationScene: React.FC<{
 
         const liftMag = 0.5 * rho * speedSq * wingArea * cl;
 
-        // Lift is perpendicular to the *velocity vector*, not simply local exact 'up'.
-        // To approximate without complex quaternion math from velocity, we can use local 'up'
-        // for small angles, or find the cross product.
+        // Lift is perpendicular to the *velocity vector* and local pitch axis.
         let liftDir = up.clone();
         if (speed > 1.0) {
             const right = forward.clone().cross(up).normalize(); // Local right
             const vDir = velocity.current.clone().normalize();
             liftDir = right.cross(vDir).normalize();
-            // Ensure it points mostly "up" relative to the aircraft
-            if (liftDir.y < 0 && cl > 0) liftDir.negate();
+            // Ensure liftDir always points roughly "through the roof"
+            if (liftDir.dot(up) < 0) liftDir.negate();
         }
 
         const lift = liftDir.clone().multiplyScalar(liftMag);
@@ -285,9 +289,6 @@ const SimulationScene: React.FC<{
             position.current.y = 0;
             velocity.current.y = Math.max(0, velocity.current.y);
         }
-
-        // Update Orientation
-        quaternion.current.setFromEuler(euler.current);
 
         // Telemetry Update
         setTelemetry({
