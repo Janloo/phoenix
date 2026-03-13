@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Sky, Plane, Grid } from '@react-three/drei';
+import { Sky, Plane, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
 import type { Requirements } from './RequirementForm';
 import { type UnitSystem, convertSpeed, convertAltitude } from '../utils/units';
@@ -54,6 +54,28 @@ const Aircraft: React.FC<{ reqs: Requirements; pitch: number; roll: number; yaw:
                 <meshStandardMaterial color="#cbd5e1" />
             </mesh>
         </group>
+    );
+};
+
+// --- Ground Plane Component ---
+const GroundPlane = () => {
+    // We expect public/grass.jpg to be present
+    const colorMap = useTexture('/grass.jpg');
+    
+    // Configure texture wrapping and repeating
+    colorMap.wrapS = THREE.RepeatWrapping;
+    colorMap.wrapT = THREE.RepeatWrapping;
+    
+    // Scale texture repeat based on the plane size
+    // Plane is 100000x100000 meters. 
+    // Grass texture should repeat every ~10 meters for reasonable scale.
+    colorMap.repeat.set(10000, 10000);
+
+    return (
+        <Plane args={[100000, 100000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
+            {/* Darken the grass texture slightly with color="#aaaaaa" so it's not overly bright */}
+            <meshStandardMaterial map={colorMap} color="#99aa99" roughness={1} />
+        </Plane>
     );
 };
 
@@ -139,8 +161,8 @@ const SimulationScene: React.FC<{
         if (keys.current['ArrowRight']) targetAileron = 1; // Roll Right
 
         let targetRudder = 0;
-        if (keys.current['KeyQ']) targetRudder = 1; // Yaw Left
-        if (keys.current['KeyE']) targetRudder = -1; // Yaw Right
+        if (keys.current['KeyQ']) targetRudder = -1; // Yaw Left
+        if (keys.current['KeyE']) targetRudder = 1; // Yaw Right
 
         // Smoothing (actuator speed)
         const controlSpeed = 5 * dt;
@@ -472,16 +494,19 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
 
                 <SimulationScene reqs={reqs} maxThrust={thrustN} setTelemetry={setTelemetry} />
 
-                <Grid
-                    infiniteGrid
-                    fadeDistance={25000}
-                    sectionColor="#666666"
-                    cellColor="#333333"
-                    sectionSize={250}
-                    cellSize={50}
-                />
-                <Plane args={[100000, 100000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-                    <meshStandardMaterial color="#1a2e1a" />
+
+                
+                {/* Grass/Ground */}
+                <GroundPlane />
+
+                {/* Basic Runway (Asphalt) */}
+                <Plane args={[150, 10000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.08, -4800]}>
+                    <meshStandardMaterial color="#2d2d2d" />
+                </Plane>
+
+                {/* Runway Centerline */}
+                <Plane args={[4, 10000]} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.07, -4800]}>
+                    <meshStandardMaterial color="#ffffff" />
                 </Plane>
             </Canvas>
 
@@ -523,9 +548,9 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                         <div className="text-xs text-slate-400">AIRSPEED</div>
                     </div>
 
-                    <div className="absolute top-16 right-6 flex flex-col items-end gap-2 scale-[0.9] origin-top-right">
+                    <div className="flex flex-col items-end gap-2 scale-[0.9] origin-bottom-right">
                         {/* Altitude */}
-                        <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right w-full">
+                        <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right min-w-[160px]">
                             <div className="text-2xl font-bold">
                                 {convertAltitude(telemetry.altitude, unitSystem).toFixed(0)}{' '}
                                 <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm' : 'ft'}</span>
@@ -533,7 +558,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                             <div className="text-xs text-slate-400">ALTITUDE</div>
                         </div>
                         {/* Vertical Speed Indicator */}
-                        <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right w-full">
+                        <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right min-w-[160px]">
                             <div className={`text-xl font-bold ${telemetry.vsi > 1 ? 'text-green-400' : telemetry.vsi < -1 ? 'text-red-400' : 'text-slate-300'}`}>
                                 {telemetry.vsi > 0.05 ? '+' : ''}
                                 {(unitSystem === 'metric' ? telemetry.vsi : telemetry.vsi * 196.85).toFixed(0)}{' '}
