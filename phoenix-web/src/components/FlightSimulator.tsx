@@ -312,6 +312,88 @@ const SimulationScene: React.FC<{
     );
 };
 
+const AttitudeIndicator: React.FC<{ pitch: number; roll: number }> = ({ pitch, roll }) => {
+    // Pitch translation: 3px per degree
+    const pitchOffset = Math.max(-150, Math.min(150, pitch * 3));
+
+    return (
+        <div className="w-64 h-64 rounded-full border-4 border-slate-700/80 overflow-hidden relative shadow-inner bg-sky-500/80 backdrop-blur-md pointer-events-none scale-[0.6]">
+            <div
+                className="absolute w-[200%] h-[400%] left-[-50%] top-[-150%] transition-transform duration-75"
+                style={{
+                    transform: `rotate(${roll}deg) translateY(${pitchOffset}px)`,
+                }}
+            >
+                {/* Sky (top half) */}
+                <div className="absolute w-full h-1/2 top-0 bg-sky-500/80"></div>
+                {/* Ground (bottom half) */}
+                <div className="absolute w-full h-1/2 bottom-0 bg-[#8B4513]/80"></div>
+                {/* Horizon Line */}
+                <div className="absolute w-full h-[4px] bg-white top-1/2 -translate-y-1/2 shadow-md"></div>
+
+                {/* Pitch Ladder */}
+                {[-60, -45, -30, -20, -10, 10, 20, 30, 45, 60].map(p => (
+                    <div key={p} className="absolute flex items-center justify-center w-full" style={{ top: `calc(50% - ${p * 3}px)` }}>
+                        <span className="text-white text-[12px] font-bold mr-2 drop-shadow-md">{Math.abs(p)}</span>
+                        <div className={`h-[3px] bg-white shadow-sm ${p % 30 === 0 ? 'w-24' : 'w-12'}`}></div>
+                        <span className="text-white text-[12px] font-bold ml-2 drop-shadow-md">{Math.abs(p)}</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Fixed Aircraft Symbol */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-4 mt-[1px]">
+                <div className="absolute left-0 w-12 h-2 bg-yellow-400 border border-yellow-600"></div>
+                <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-yellow-400 rounded-full border border-yellow-600"></div>
+                <div className="absolute right-0 w-12 h-2 bg-yellow-400 border border-yellow-600"></div>
+                <div className="absolute left-1/2 top-0 transform -translate-x-1/2 w-1 h-3 bg-yellow-400 border border-yellow-600"></div>
+            </div>
+
+            {/* Fixed Roll Pointer (top) */}
+            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[15px] border-t-yellow-400 drop-shadow-md z-10"></div>
+        </div>
+    );
+};
+
+const HeadingIndicator: React.FC<{ heading: number }> = ({ heading }) => {
+    // Normalise heading to 0-359.99
+    const h = ((heading % 360) + 360) % 360;
+
+    const ticks = [];
+    const centerTick = Math.floor(h / 10) * 10;
+
+    for (let current = centerTick - 60; current <= centerTick + 60; current += 10) {
+        const displayDeg = ((current % 360) + 360) % 360;
+        let label = '';
+        if (current % 30 === 0) {
+            label = (displayDeg / 10).toString().padStart(2, '0');
+            if (displayDeg === 0 || displayDeg === 360) label = 'N';
+            if (displayDeg === 90) label = 'E';
+            if (displayDeg === 180) label = 'S';
+            if (displayDeg === 270) label = 'W';
+        }
+
+        const pxOffset = (current - h) * 4;
+
+        ticks.push(
+            <div key={current} className="absolute flex flex-col items-center" style={{ left: `calc(50% + ${pxOffset}px)`, transform: 'translateX(-50%)' }}>
+                <div className={`w-[2px] bg-white shadow-sm ${current % 30 === 0 ? 'h-4' : 'h-2'}`}></div>
+                {label && <span className="text-sm font-bold mt-1 text-white drop-shadow-md">{label}</span>}
+            </div>
+        );
+    }
+
+    return (
+        <div className="w-[320px] h-10 bg-black/40 backdrop-blur-md border border-slate-700/80 rounded-lg overflow-hidden relative font-mono pointer-events-none mt-2 scale-[0.8] origin-top">
+            {/* Center pointer */}
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] border-b-yellow-400 z-10 drop-shadow-md"></div>
+            {/* Tick container */}
+            <div className="absolute top-0 left-0 w-full h-full pt-[2px]">
+                {ticks}
+            </div>
+        </div>
+    );
+};
 
 export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) => {
     const [telemetry, setTelemetry] = useState<{
@@ -353,7 +435,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
     const sliderMax = calcThrust * 3;
 
     return (
-        <div className="w-full h-[600px] relative bg-black rounded-lg overflow-hidden border border-slate-700">
+        <div className="w-full h-[800px] relative bg-black rounded-lg overflow-hidden border border-slate-700">
             {/* 3D Viewport */}
             <Canvas shadows camera={{ fov: 60, far: 500000 }}>
                 <Sky sunPosition={[100, 20, 100]} distance={450000} />
@@ -377,17 +459,51 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
 
             {/* HUD Overlay */}
             <div className="absolute top-0 left-0 w-full h-full pointer-events-none p-6 flex flex-col justify-between">
+                {/* Top Center Compass */}
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 pointer-events-none z-10">
+                    <HeadingIndicator heading={telemetry.heading} />
+                </div>
+
                 {/* Top Bar */}
-                <div className="flex justify-between items-start gap-4">
+                <div className="flex justify-between items-start gap-4 z-20 relative">
                     {/* Flight state */}
-                    <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-green-400 font-mono text-sm">
-                        <div>THROTTLE: {(telemetry.throttle * 100).toFixed(0)}%</div>
-                        <div>PITCH: {telemetry.pitch.toFixed(1)}°</div>
+                    <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-green-400 font-mono text-sm max-w-[150px]">
+                        <div>THR: {(telemetry.throttle * 100).toFixed(0)}%</div>
+                        <div>PTCH: {telemetry.pitch.toFixed(1)}°</div>
                         <div>ROLL: {telemetry.roll.toFixed(1)}°</div>
                     </div>
 
-                    {/* Engine thrust override */}
-                    <div className="pointer-events-auto bg-black/60 p-3 rounded backdrop-blur-sm text-yellow-300 font-mono text-xs flex flex-col gap-1 min-w-[200px]">
+                    {/* Top Flight State moved or adjusted manually later, just remove thrust override from right side */}
+                    <button
+                        onClick={onExit}
+                        className="pointer-events-auto bg-red-600/80 hover:bg-red-600 text-white px-4 py-2 rounded font-bold backdrop-blur-sm transition ml-auto"
+                    >
+                        ABORT FLIGHT
+                    </button>
+                </div>
+
+                {/* Bottom Center HSD */}
+                <div className="absolute bottom-4 right-4 pointer-events-none z-10 origin-bottom-right">
+                    <AttitudeIndicator pitch={telemetry.pitch} roll={telemetry.roll} />
+                </div>
+
+                {/* Bottom Stats */}
+                <div className="flex justify-between items-end">
+                    <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono scale-[0.9] origin-bottom-left">
+                        <div className="text-2xl font-bold">{convertSpeed(telemetry.speed, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm/s' : 'kts'}</span></div>
+                        <div className="text-xs text-slate-400">AIRSPEED</div>
+                    </div>
+
+                    <div className="absolute top-16 right-6 bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono text-right scale-[0.9] origin-top-right">
+                        <div className="text-2xl font-bold">{convertAltitude(telemetry.altitude, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm' : 'ft'}</span></div>
+                        <div className="text-xs text-slate-400">ALTITUDE</div>
+                    </div>
+                </div>
+
+                {/* Controls Hint & Axis Position */}
+                <div className="absolute bottom-6 left-6 text-slate-400 font-mono text-xs flex flex-col gap-2">
+                    {/* Max Thrust Control */}
+                    <div className="pointer-events-auto bg-black/60 p-3 rounded backdrop-blur-sm text-yellow-300 font-mono text-xs flex flex-col gap-1 w-full min-w-[200px]">
                         <div className="flex justify-between items-center">
                             <span className="font-bold text-yellow-400">MAX THRUST</span>
                             <span className="text-white text-sm font-bold">{thrustN.toLocaleString()} N</span>
@@ -413,36 +529,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                         </div>
                     </div>
 
-                    <button
-                        onClick={onExit}
-                        className="pointer-events-auto bg-red-600/80 hover:bg-red-600 text-white px-4 py-2 rounded font-bold backdrop-blur-sm transition"
-                    >
-                        ABORT FLIGHT
-                    </button>
-                </div>
-
-                {/* Center HUD */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                    <div className="w-8 h-8 border-2 border-green-500/50 rounded-full flex items-center justify-center">
-                        <div className="w-1 h-1 bg-green-500 rounded-full"></div>
-                    </div>
-                </div>
-
-                {/* Bottom Stats */}
-                <div className="flex justify-between items-end">
-                    <div className="bg-black/50 p-4 rounded backdrop-blur-sm text-white font-mono">
-                        <div className="text-2xl font-bold">{convertSpeed(telemetry.speed, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm/s' : 'kts'}</span></div>
-                        <div className="text-xs text-slate-400">AIRSPEED</div>
-                    </div>
-
-                    <div className="bg-black/50 p-4 rounded backdrop-blur-sm text-white font-mono text-right">
-                        <div className="text-2xl font-bold">{convertAltitude(telemetry.altitude, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm' : 'ft'}</span></div>
-                        <div className="text-xs text-slate-400">ALTITUDE</div>
-                    </div>
-                </div>
-
-                {/* Controls Hint */}
-                <div className="absolute bottom-6 left-6 text-slate-400 font-mono text-xs space-y-2">
+                    {/* Inputs panel */}
                     <div className="bg-black/50 p-3 rounded backdrop-blur-sm">
                         <div className="font-bold text-slate-300 mb-1">CONTROLS INPUT</div>
                         {/* Elevator */}
