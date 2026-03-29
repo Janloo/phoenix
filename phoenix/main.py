@@ -76,8 +76,9 @@ def main():
     max_power = input_float("Max Power (Watts) (160HP ~ 119000)", 119000.0)
     
     # 4. Create Aircraft
-    # Assumptions for MVP
-    tail = TailGeo(span=3.0, chord=1.0, arm=5.0) # Generic tail
+    # Assumptions for component masses and positions
+    wing = WingGeo(span=span, chord_root=chord, chord_tip=chord, mass=80.0)
+    tail = TailGeo(span=3.0, chord=1.0, arm=5.0, mass=15.0)
     engine = Engine(max_power=max_power, type="piston")
     
     aircraft = Aircraft(
@@ -86,9 +87,17 @@ def main():
         tail=tail,
         airfoil=airfoil,
         engine=engine,
-        empty_weight=empty_weight,
-        payload=80.0, # Pilot
-        fuel=100.0
+        fuselage_mass=empty_weight - 80.0 - 15.0 - 120.0, # Approximate fuselage weight
+        fuselage_length=7.0,
+        engine_mass=120.0,
+        wing_pos=(0, 0, 0),
+        tail_pos=(-5.0, 0, 0),
+        engine_pos=(1.5, 0, 0),
+        fuselage_pos=(-1.0, 0, -0.2),
+        payload=80.0,
+        fuel=100.0,
+        payload_pos=(0, 0, -0.4),
+        fuel_pos=(-0.5, 0, -0.3)
     )
     
     # 5. Analysis

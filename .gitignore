@@ -1,0 +1,24 @@
+# Python Bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Project-specific
+phoenix-web/node_modules/
+phoenix-web/dist/
+phoenix-web/.env
+phoenix-web/.env.local
+
+# Flight Data / Analysed bits
+phoenix/data/airfoils/*.dat # (Toggle this if you want to commit data files)
