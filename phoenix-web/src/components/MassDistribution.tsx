@@ -13,9 +13,11 @@ interface MassControlProps {
     label: string;
     massKey: keyof Requirements;
     posKey: keyof Requirements;
+    posZKey: keyof Requirements;
     color: string;
     massVal: number;
     posVal: number;
+    posZVal: number;
     reqs: Requirements;
     unitSystem: UnitSystem;
     massUnit: string;
@@ -26,7 +28,7 @@ interface MassControlProps {
 }
 
 const MassControl: React.FC<MassControlProps> = ({
-    label, massKey, posKey, color, massVal, posVal,
+    label, massKey, posKey, posZKey, color, massVal, posVal, posZVal,
     reqs, unitSystem, massUnit, lenUnit, formatLen,
     onMassChange, onPosChange
 }) => {
@@ -79,6 +81,25 @@ const MassControl: React.FC<MassControlProps> = ({
                 <div className="flex justify-between text-[10px] text-slate-600">
                     <span>Fwd</span>
                     <span>Aft</span>
+                </div>
+            </div>
+
+            {/* Position Z Slider */}
+            <div className="space-y-1 mt-4">
+                <div className="flex justify-between text-xs text-slate-400">
+                    <span>Vertical Position ({lenUnit})</span>
+                    <span className="font-mono text-white">{formatLen(posZVal)}</span>
+                </div>
+                <input
+                    type="range"
+                    min="-2" max="2" step="0.1"
+                    value={posZVal || 0}
+                    onChange={(e) => onPosChange(posZKey, parseFloat(e.target.value))}
+                    className="w-full h-1 bg-slate-600 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-slate-600">
+                    <span>Down</span>
+                    <span>Up</span>
                 </div>
             </div>
         </div>
@@ -145,10 +166,11 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
 
                     <MassControl
                         label="Engine"
-                        massKey="engineMass" posKey="enginePos"
+                        massKey="engineMass" posKey="enginePos" posZKey="enginePosZ"
                         color="#f59e0b"
                         massVal={cgResult.masses.engine.mass}
                         posVal={reqs.enginePos || 0}
+                        posZVal={reqs.enginePosZ || 0}
                         reqs={reqs}
                         unitSystem={unitSystem}
                         massUnit={massUnit}
@@ -160,10 +182,11 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
 
                     <MassControl
                         label="Fuel Tank"
-                        massKey="fuelMass" posKey="fuelPos"
+                        massKey="fuelMass" posKey="fuelPos" posZKey="fuelPosZ"
                         color="#ec4899"
                         massVal={cgResult.masses.fuel.mass}
                         posVal={reqs.fuelPos || 0}
+                        posZVal={reqs.fuelPosZ || 0}
                         reqs={reqs}
                         unitSystem={unitSystem}
                         massUnit={massUnit}
@@ -175,10 +198,11 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
 
                     <MassControl
                         label="Structure"
-                        massKey="structureMass" posKey="structurePos"
+                        massKey="structureMass" posKey="structurePos" posZKey="structurePosZ"
                         color="#64748b"
                         massVal={cgResult.masses.structure.mass}
                         posVal={reqs.structurePos || 0}
+                        posZVal={reqs.structurePosZ || 0}
                         reqs={reqs}
                         unitSystem={unitSystem}
                         massUnit={massUnit}
@@ -209,8 +233,8 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                             <span className="font-mono text-white">{formatLen(cgResult.cgLocation)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-slate-400">Neutral Point</span>
-                            <span className="font-mono text-white">{formatLen(cgResult.neutralPoint)}</span>
+                            <span className="text-slate-400">Vertical CG</span>
+                            <span className="font-mono text-white">{formatLen(cgResult.cgLocationZ)}</span>
                         </div>
                         <div className="flex justify-between border-t border-slate-700 pt-2">
                             <span className="text-slate-400">Static Margin</span>
@@ -283,20 +307,25 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                     </g>
 
                     {/* Mass Markers */}
+                    {/* enginePosZ/fuelPosZ are in meters. Up is positive in geometric sense for aircraft Z? 
+                       Actually in many aero conventions Z is down. 
+                       But here 'Up' slider was at the end. Let's assume +Z is Up for visualization.
+                       So y = centerY - (posZ * pxPerMeter)
+                    */}
                     {/* Engine */}
-                    <g transform={`translate(${toSvgX(reqs.enginePos || 0)}, ${centerY})`}>
+                    <g transform={`translate(${toSvgX(reqs.enginePos || 0)}, ${centerY - (reqs.enginePosZ || 0) * pxPerMeter})`}>
                         <circle r="8" fill="#f59e0b" />
                         <text y="-12" textAnchor="middle" fill="#f59e0b" fontSize="10" fontWeight="bold">ENG</text>
                     </g>
 
                     {/* Fuel */}
-                    <g transform={`translate(${toSvgX(reqs.fuelPos || 0)}, ${centerY})`}>
+                    <g transform={`translate(${toSvgX(reqs.fuelPos || 0)}, ${centerY - (reqs.fuelPosZ || 0) * pxPerMeter})`}>
                         <circle r="6" fill="#ec4899" />
                         <text y="-12" textAnchor="middle" fill="#ec4899" fontSize="10" fontWeight="bold">FUEL</text>
                     </g>
 
                     {/* Structure */}
-                    <g transform={`translate(${toSvgX(reqs.structurePos || 0)}, ${centerY})`}>
+                    <g transform={`translate(${toSvgX(reqs.structurePos || 0)}, ${centerY - (reqs.structurePosZ || 0) * pxPerMeter})`}>
                         <circle r="10" fill="#64748b" />
                         <text y="-15" textAnchor="middle" fill="#94a3b8" fontSize="10" fontWeight="bold">STR</text>
                     </g>
@@ -308,11 +337,10 @@ export const MassDistribution: React.FC<Props> = ({ reqs, onChange, unitSystem }
                     </g>
 
                     {/* CG Marker */}
-                    <g transform={`translate(${toSvgX(cgResult.cgLocation)}, ${centerY + 40})`}>
+                    <g transform={`translate(${toSvgX(cgResult.cgLocation)}, ${centerY - (cgResult.cgLocationZ * pxPerMeter)})`}>
                         <circle r="8" fill="none" stroke="#eab308" strokeWidth="2" />
                         <path d="M 0 -8 L 0 8 M -8 0 L 8 0" stroke="#eab308" strokeWidth="2" />
                         <circle r="3" fill="#eab308" />
-                        <line x1="0" y1="-40" x2="0" y2="-10" stroke="#eab308" strokeDasharray="2 2" />
                         <text y="20" textAnchor="middle" fill="#eab308" fontWeight="bold">CG</text>
                     </g>
 

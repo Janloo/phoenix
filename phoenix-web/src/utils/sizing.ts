@@ -77,11 +77,12 @@ export interface CGResult {
     neutralPoint: number;
     staticMargin: number; // (NP - CG) / MAC (%MAC)
     masses: {
-        engine: { mass: number; pos: number };
-        fuel: { mass: number; pos: number };
-        structure: { mass: number; pos: number };
-        payload: { mass: number; pos: number };
+        engine: { mass: number; pos: number; posZ: number };
+        fuel: { mass: number; pos: number; posZ: number };
+        structure: { mass: number; pos: number; posZ: number };
+        payload: { mass: number; pos: number; posZ: number };
     };
+    cgLocationZ: number;
 }
 
 export const calculateCG = (reqs: any, geom: SizingResult): CGResult => {
@@ -96,13 +97,21 @@ export const calculateCG = (reqs: any, geom: SizingResult): CGResult => {
 
     // Positions (User defined)
     const p_eng = reqs.enginePos || 0;
+    const p_engZ = reqs.enginePosZ || 0;
     const p_fuel = reqs.fuelPos || 0;
+    const p_fuelZ = reqs.fuelPosZ || 0;
     const p_struct = reqs.structurePos || 0;
+    const p_structZ = reqs.structurePosZ || 0;
     const p_payload = 0; // Payload typically at CG/Wing Center for stability
+    const p_payloadZ = 0;
 
-    // Moment Calculation
+    // Moment Calculation (Longitudinal)
     const momentTotal = (m_eng * p_eng) + (m_fuel * p_fuel) + (m_struct * p_struct) + (m_payload * p_payload);
     const cg = momentTotal / massTotal;
+
+    // Moment Calculation (Vertical)
+    const momentTotalZ = (m_eng * p_engZ) + (m_fuel * p_fuelZ) + (m_struct * p_structZ) + (m_payload * p_payloadZ);
+    const cgZ = momentTotalZ / massTotal;
 
     // Neutral Point Estimation
     // Simplified: NP is usually around 25-40% MAC. 
@@ -123,13 +132,14 @@ export const calculateCG = (reqs: any, geom: SizingResult): CGResult => {
     return {
         totalMass: massTotal,
         cgLocation: cg,
+        cgLocationZ: cgZ,
         neutralPoint: neutralPoint,
         staticMargin: staticMargin,
         masses: {
-            engine: { mass: m_eng, pos: p_eng },
-            fuel: { mass: m_fuel, pos: p_fuel },
-            structure: { mass: m_struct, pos: p_struct },
-            payload: { mass: m_payload, pos: p_payload }
+            engine: { mass: m_eng, pos: p_eng, posZ: p_engZ },
+            fuel: { mass: m_fuel, pos: p_fuel, posZ: p_fuelZ },
+            structure: { mass: m_struct, pos: p_struct, posZ: p_structZ },
+            payload: { mass: m_payload, pos: p_payload, posZ: p_payloadZ }
         }
     };
 };

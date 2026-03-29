@@ -18,8 +18,11 @@ interface Requirements {
     tailSweep: number;       // Sweep angle in degrees (0 - 30)
     // Mass & Balance (Positions from Wing LE/Quarter Chord, +Aft)
     enginePos: number;
+    enginePosZ: number;
     fuelPos: number;
+    fuelPosZ: number;
     structurePos: number;
+    structurePosZ: number;
     // Mass Values (kg)
     engineMass: number;
     fuelMass: number;

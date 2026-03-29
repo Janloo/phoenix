@@ -35,8 +35,11 @@ function App() {
     tailSweep: 0,
     // Mass & Balance Defaults
     enginePos: -0.5, // Ahead of wing
+    enginePosZ: 0,
     fuelPos: 0,      // Near CG
+    fuelPosZ: 0,
     structurePos: 1.0, // Behind wing (Tail boom etc)
+    structurePosZ: 0,
     engineMass: 0,   // 0 = Auto-calculated
     fuelMass: 0,     // 0 = Auto-calculated
     structureMass: 0 // 0 = Auto-calculated
