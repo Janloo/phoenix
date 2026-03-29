@@ -485,7 +485,7 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
     const sliderMax = calcThrust * 3;
 
     return (
-        <div className="w-full h-[800px] relative bg-black rounded-lg overflow-hidden border border-slate-700">
+        <div className="w-full h-[calc(100vh-200px)] min-h-[500px] relative bg-black rounded-lg overflow-hidden border border-slate-700">
             {/* 3D Viewport */}
             <Canvas shadows camera={{ fov: 60, far: 500000 }}>
                 <Sky sunPosition={[100, 20, 100]} distance={450000} />
@@ -541,8 +541,8 @@ export const FlightSimulator: React.FC<Props> = ({ reqs, unitSystem, onExit }) =
                     <AttitudeIndicator pitch={telemetry.pitch} roll={telemetry.roll} />
                 </div>
 
-                {/* Bottom Stats */}
-                <div className="flex justify-between items-end">
+                {/* Bottom Stats: Airspeed, Altitude, VSI */}
+                <div className="flex justify-between items-end mb-20">
                     <div className="bg-black/50 p-3 rounded backdrop-blur-sm text-white font-mono scale-[0.9] origin-bottom-left">
                         <div className="text-2xl font-bold">{convertSpeed(telemetry.speed, unitSystem).toFixed(0)} <span className="text-sm text-slate-400">{unitSystem === 'metric' ? 'm/s' : 'kts'}</span></div>
                         <div className="text-xs text-slate-400">AIRSPEED</div>
